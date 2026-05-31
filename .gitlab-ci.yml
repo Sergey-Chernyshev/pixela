@@ -1,0 +1,44 @@
+# Pixela backend CI. Phase 0 scope: install, lint, typecheck, build.
+# The Testcontainers smoke runs locally / in a docker-enabled runner (added later).
+image: node:22
+
+stages:
+  - verify
+
+variables:
+  PNPM_VERSION: '10.15.1'
+
+# Cache the pnpm store keyed by the lockfile.
+cache:
+  key:
+    files:
+      - pnpm-lock.yaml
+  paths:
+    - .pnpm-store
+
+.setup: &setup
+  - corepack enable
+  - corepack prepare "pnpm@${PNPM_VERSION}" --activate
+  - pnpm config set store-dir .pnpm-store
+  - pnpm install --frozen-lockfile
+  # Prisma Client must be generated before typecheck/build (PrismaService imports it).
+  - pnpm --filter @pixela/api exec prisma generate
+
+lint:
+  stage: verify
+  script:
+    - *setup
+    - pnpm lint
+    - pnpm format:check
+
+typecheck:
+  stage: verify
+  script:
+    - *setup
+    - pnpm typecheck
+
+build:
+  stage: verify
+  script:
+    - *setup
+    - pnpm build
