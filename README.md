@@ -62,15 +62,15 @@ Phase 0.
 
 ## Scripts
 
-| Script | What it does |
-| --- | --- |
-| `pnpm lint` / `pnpm lint:fix` | ESLint across the workspace |
-| `pnpm typecheck` | `tsc --noEmit` in every package |
-| `pnpm format` / `pnpm format:check` | Prettier |
-| `pnpm build` | Build every package |
-| `pnpm test` | Run all package tests (API smoke uses Testcontainers — Docker required) |
-| `pnpm dev:infra` / `pnpm dev:infra:down` | Start/stop local infra |
-| `pnpm prisma:generate` / `pnpm prisma:migrate` | Prisma client / migrations |
+| Script                                         | What it does                                                            |
+| ---------------------------------------------- | ----------------------------------------------------------------------- |
+| `pnpm lint` / `pnpm lint:fix`                  | ESLint across the workspace                                             |
+| `pnpm typecheck`                               | `tsc --noEmit` in every package                                         |
+| `pnpm format` / `pnpm format:check`            | Prettier                                                                |
+| `pnpm build`                                   | Build every package                                                     |
+| `pnpm test`                                    | Run all package tests (API smoke uses Testcontainers — Docker required) |
+| `pnpm dev:infra` / `pnpm dev:infra:down`       | Start/stop local infra                                                  |
+| `pnpm prisma:generate` / `pnpm prisma:migrate` | Prisma client / migrations                                              |
 
 ## Tests
 
