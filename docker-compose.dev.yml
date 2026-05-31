@@ -10,7 +10,9 @@ services:
       POSTGRES_PASSWORD: pixela
       POSTGRES_DB: pixela
     ports:
-      - '5432:5432'
+      # Host port is overridable (defaults to the spec value) so Pixela can run alongside
+      # other local stacks without conflicts. Override in .env if 5432 is taken.
+      - '${PIXELA_PG_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +24,7 @@ services:
   redis:
     image: redis:7
     ports:
-      - '6379:6379'
+      - '${PIXELA_REDIS_PORT:-6379}:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
@@ -36,8 +38,8 @@ services:
       MINIO_ROOT_USER: pixela
       MINIO_ROOT_PASSWORD: pixela-secret
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '${PIXELA_MINIO_PORT:-9000}:9000'
+      - '${PIXELA_MINIO_CONSOLE_PORT:-9001}:9001'
     volumes:
       - miniodata:/data
     healthcheck:
