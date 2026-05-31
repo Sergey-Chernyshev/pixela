@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Prisma generated client
+**/generated/
+
+# Env & secrets — never commit real env files
+.env
+.env.*
+!.env.example
+
+# Test / coverage artifacts
+coverage/
+*.log
+
+# Pixela's OWN baseline PNGs and test artifacts must never be committed (CLAUDE.md)
+*.png
+*.jpg
+*.jpeg
+!docs/**/*.png
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
