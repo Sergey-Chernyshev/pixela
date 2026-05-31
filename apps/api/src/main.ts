@@ -34,16 +34,12 @@ async function bootstrapHttp(logger: Logger): Promise<void> {
 async function bootstrapWorker(logger: Logger): Promise<void> {
   // Worker mode boots the DI context (Prisma/Redis connect; BullMQ consumers register
   // here from Phase 2) without an HTTP listener. The open Redis socket keeps it alive.
+  // enableShutdownHooks() drains onModuleDestroy on SIGINT/SIGTERM and re-raises the signal
+  // for a correct exit code — so no manual signal handlers (which would double-run destroy
+  // hooks and race process.exit against Nest's process.kill).
   const app = await NestFactory.createApplicationContext(AppModule);
   app.enableShutdownHooks();
   logger.log('Pixela API booted in WORKER mode (no HTTP listener).');
-
-  const shutdown = (signal: string): void => {
-    logger.log(`Received ${signal}, shutting down worker...`);
-    void app.close().then(() => process.exit(0));
-  };
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
 async function bootstrap(): Promise<void> {
@@ -56,4 +52,7 @@ async function bootstrap(): Promise<void> {
   }
 }
 
-void bootstrap();
+bootstrap().catch((err) => {
+  new Logger('Bootstrap').error(err);
+  process.exit(1);
+});

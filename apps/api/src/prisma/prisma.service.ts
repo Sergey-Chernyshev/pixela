@@ -15,7 +15,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       await this.$connect();
       this.logger.log('Postgres connected');
     } catch (err) {
-      this.logger.warn(`Postgres not reachable at startup: ${(err as Error).message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Postgres not reachable at startup: ${message}`);
     }
   }
 

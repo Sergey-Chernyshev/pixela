@@ -48,7 +48,8 @@ export class HealthService {
       await fn();
       return 'up';
     } catch (err) {
-      this.logger.warn(`Health check '${name}' failed: ${(err as Error).message}`);
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.warn(`Health check '${name}' failed: ${message}`);
       return 'down';
     }
   }
