@@ -1,0 +1,16 @@
+{
+  "name": "@pixela/playwright-reporter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Playwright reporter that uploads screenshots to Pixela. Scaffold — implemented in Phase 3 (docs/spec/agents/05-playwright-reporter.md).",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
