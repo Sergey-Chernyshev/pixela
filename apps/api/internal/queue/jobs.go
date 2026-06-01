@@ -2,8 +2,8 @@ package queue
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
@@ -11,7 +11,7 @@ import (
 
 // DiffJobArgs asks the worker to compare one snapshot against its baseline. Enqueued by ingestion on
 // build finalize, in the SAME transaction as the snapshot rows (InsertTx) so a job exists iff its
-// snapshot committed — no lost/phantom jobs. The real comparison lands in Phase 2.
+// snapshot committed. Worker impl lives in internal/diffrun (Phase 2).
 type DiffJobArgs struct {
 	SnapshotID string `json:"snapshot_id"`
 }
@@ -19,29 +19,23 @@ type DiffJobArgs struct {
 // Kind uniquely identifies the job type for River across deploys.
 func (DiffJobArgs) Kind() string { return "pixela.diff" }
 
-// InsertOpts dedupes by args so a CI retry that re-enqueues the same snapshot's diff is a no-op
-// (at-least-once-safe).
+// InsertOpts dedupes by args so a CI retry that re-enqueues the same snapshot's diff is a no-op.
 func (DiffJobArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true}}
 }
 
-// diffWorker is a Phase-0/1 stub: it acknowledges the job without comparing. The real pure-Go
-// pixelmatch implementation lands in Phase 2. The deferred recover keeps a panic from crashing the
-// worker process (rulebook §6).
-type diffWorker struct {
-	river.WorkerDefaults[DiffJobArgs]
-	log *slog.Logger
+// FinalizeBuildArgs recomputes a build's aggregate status once all its snapshots are terminal. The
+// diff job that observes the last pending snapshot enqueues this, unique by build, in its own tx.
+type FinalizeBuildArgs struct {
+	BuildID string `json:"build_id"`
 }
 
-func (w *diffWorker) Work(ctx context.Context, job *river.Job[DiffJobArgs]) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in diff worker: %v", r)
-		}
-	}()
-	w.log.InfoContext(ctx, "diff job received (stub; comparison lands in Phase 2)",
-		"job_id", job.ID, "snapshot_id", job.Args.SnapshotID)
-	return nil
+// Kind uniquely identifies the job type for River across deploys.
+func (FinalizeBuildArgs) Kind() string { return "pixela.finalize_build" }
+
+// InsertOpts dedupes by build so concurrent diff jobs that all observe "0 pending" enqueue once.
+func (FinalizeBuildArgs) InsertOpts() river.InsertOpts {
+	return river.InsertOpts{UniqueOpts: river.UniqueOpts{ByArgs: true}}
 }
 
 // EnqueueDiffJobs inserts one diff job per snapshot id within the given transaction (InsertManyTx).
@@ -56,6 +50,20 @@ func (q *Queue) EnqueueDiffJobs(ctx context.Context, tx pgx.Tx, snapshotIDs []st
 	}
 	if _, err := q.client.InsertManyTx(ctx, tx, params); err != nil {
 		return fmt.Errorf("enqueue %d diff jobs: %w", len(snapshotIDs), err)
+	}
+	return nil
+}
+
+// EnqueueFinalizeBuildTx enqueues a build-finalize job inside tx. It is meant to be called from within
+// a River worker, where the executing client is available via the context (avoiding a chicken-and-egg
+// dependency between the worker bundle and the client).
+func EnqueueFinalizeBuildTx(ctx context.Context, tx pgx.Tx, buildID string) error {
+	client := river.ClientFromContext[pgx.Tx](ctx)
+	if client == nil {
+		return errors.New("no river client in context")
+	}
+	if _, err := client.InsertTx(ctx, tx, FinalizeBuildArgs{BuildID: buildID}, nil); err != nil {
+		return fmt.Errorf("enqueue finalize build %s: %w", buildID, err)
 	}
 	return nil
 }

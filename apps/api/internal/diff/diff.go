@@ -14,8 +14,6 @@
 package diff
 
 import (
-	"errors"
-	"fmt"
 	"image"
 	"image/color"
 	"io"
@@ -86,54 +84,7 @@ func DefaultOptions() Options {
 }
 
 // NewStdlibEngine returns the v1 pure-Go engine (image/png + orisano/pixelmatch),
-// CGO-free for a single static binary. In Phase 0 it is a stub: both methods return an
-// error. The real implementation lands in Phase 2 (see stdlibEngine).
+// CGO-free for a single static binary. The implementation lives in stdlib.go.
 func NewStdlibEngine() Engine {
 	return stdlibEngine{}
-}
-
-// errNotImplemented is returned by the Phase-0 stub. It is wrapped on return so callers
-// can detect it with errors.Is if they choose.
-var errNotImplemented = errors.New("diff engine not implemented (Phase 2)")
-
-// stdlibEngine is the v1 engine. It is a stub in Phase 0; the real pure-Go pixelmatch +
-// image/png implementation lands in Phase 2.
-//
-// Phase-2 implementation plan (rulebook §10):
-//
-//	Decode:
-//	  1. png.Decode the reader (image/png only; CGO_ENABLED=0).
-//	  2. Normalize to a canonical *image.NRGBA: 8-bit, straight (non-premultiplied)
-//	     alpha, no gamma, no ICC/color-management, 16→8 truncation. All optional decode
-//	     transforms are disabled (§10.4 #5) — they are documented sources of
-//	     cross-decoder pixel divergence. This canonical NRGBA is what BOTH diffing and
-//	     content-addressing operate on.
-//
-//	Diff:
-//	  1. Re-normalize baseline and candidate to canonical NRGBA (idempotent if already so).
-//	  2. Size mismatch => Status=SnapshotChanged, DiffRatio=1.0, DiffPixels=Wc*Hc
-//	     (spec MVP decision (a)); never smart-resize, never downscale-before-diff.
-//	  3. Apply IgnoreRects by deterministically zeroing those pixels in BOTH buffers
-//	     before pixelmatch (§10.4 #6).
-//	  4. Run orisano/pixelmatch (pinned by exact commit) with PixelThreshold, IncludeAA,
-//	     and DiffColor, writing differing pixels into a fresh diff image and counting them.
-//	  5. Status = SnapshotUnchanged when DiffPixels == 0, else SnapshotChanged.
-//	     (SnapshotNew/SnapshotRemoved are decided upstream by baseline presence, not here.)
-//
-//	Determinism / content addressing (handled at the Encoder/CAS seam, NOT here):
-//	  - Encode the diff PNG with one reused png.Encoder{CompressionLevel: BestCompression}.
-//	  - Content-address the diff by its DECODED canonical pixels, namespaced with a
-//	    version tag: sha256("pixela-diff/v1" || width || height || canonical_pixels).
-//	    Hashing decoded pixels (not compressed bytes) survives toolchain/encoder changes;
-//	    the version tag lets the diff renderer be migrated intentionally.
-type stdlibEngine struct{}
-
-// Decode is a Phase-0 stub; it always returns errNotImplemented (wrapped, per §5).
-func (stdlibEngine) Decode(io.Reader) (image.Image, error) {
-	return nil, fmt.Errorf("stdlib decode: %w", errNotImplemented)
-}
-
-// Diff is a Phase-0 stub; it always returns the zero Result and errNotImplemented (wrapped, per §5).
-func (stdlibEngine) Diff(image.Image, image.Image, Options) (Result, error) {
-	return Result{}, fmt.Errorf("stdlib diff: %w", errNotImplemented)
 }

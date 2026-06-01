@@ -6,6 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/config"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/diff"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/diffrun"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/queue"
 )
 
@@ -17,7 +19,15 @@ func runWorker(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 	defer d.close()
 
-	q, err := queue.NewWorkerClient(d.db.Pool(), log)
+	workers := diffrun.Workers(diffrun.Deps{
+		DB:                 d.db,
+		Store:              d.store,
+		Engine:             diff.NewStdlibEngine(),
+		Log:                log,
+		Options:            diff.DefaultOptions(),
+		DiffRatioThreshold: 0, // any changed pixel => CHANGED (per-project override is a later refinement)
+	})
+	q, err := queue.NewWorkerClient(d.db.Pool(), log, workers)
 	if err != nil {
 		return fmt.Errorf("queue worker client: %w", err)
 	}

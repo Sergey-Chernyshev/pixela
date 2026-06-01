@@ -17,33 +17,6 @@ import (
 	"github.com/riverqueue/river/rivermigrate"
 )
 
-// HealthCheckArgs is a placeholder job kind so the worker has something
-// registered and the queue design is exercised end to end. Later phases add the
-// real DiffJob / FinalizeBuildJob kinds.
-type HealthCheckArgs struct{}
-
-// Kind uniquely identifies the job type for River across deploys.
-func (HealthCheckArgs) Kind() string { return "pixela.healthcheck" }
-
-// healthCheckWorker handles HealthCheckArgs jobs.
-type healthCheckWorker struct {
-	river.WorkerDefaults[HealthCheckArgs]
-	log *slog.Logger
-}
-
-// Work runs a healthcheck job. The deferred recover converts a panic into an
-// error so a misbehaving job can never crash the worker process (rulebook §6).
-func (w *healthCheckWorker) Work(ctx context.Context, job *river.Job[HealthCheckArgs]) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic in healthcheck worker: %v", r)
-		}
-	}()
-
-	w.log.InfoContext(ctx, "river healthcheck job", "id", job.ID)
-	return nil
-}
-
 // Queue wraps the generic River client behind a small, non-generic API so the
 // rest of the application does not depend on river.Client[pgx.Tx] directly.
 type Queue struct {
@@ -66,15 +39,11 @@ func NewServeClient(pool *pgxpool.Pool, log *slog.Logger) (*Queue, error) {
 	return &Queue{client: client, log: log}, nil
 }
 
-// NewWorkerClient builds a full River client for the worker process: it
-// registers the workers bundle and a default queue sized to the available CPUs
-// (diff work is CPU-bound; job-level concurrency is River's, not ours — see
-// rulebook §6). Call Start to begin processing.
-func NewWorkerClient(pool *pgxpool.Pool, log *slog.Logger) (*Queue, error) {
-	workers := river.NewWorkers()
-	river.AddWorker(workers, &healthCheckWorker{log: log})
-	river.AddWorker(workers, &diffWorker{log: log})
-
+// NewWorkerClient builds a full River client for the worker process from a caller-built workers
+// bundle, with a default queue sized to the available CPUs (diff work is CPU-bound; job-level
+// concurrency is River's, not ours — rulebook §6). Call Start to begin processing. The bundle is
+// assembled by internal/diffrun, which owns the worker implementations and their dependencies.
+func NewWorkerClient(pool *pgxpool.Pool, log *slog.Logger, workers *river.Workers) (*Queue, error) {
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger: log,
 		Queues: map[string]river.QueueConfig{

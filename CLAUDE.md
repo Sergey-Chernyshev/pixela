@@ -59,8 +59,14 @@
   (size/magic/sha→`SNAPSHOT_HASH_MISMATCH`), finalize (REMOVED + `FOR UPDATE` + транзакционный enqueue diff
   через River `InsertTx`). 4 Huma-операции `/api/v1/*`, error-envelope, admin-CLI `project/apikey`.
   Integration-тест 11/11 (401/403/dedup/idempotent/hash-mismatch/BUILD_NOT_FOUND/finalize+REMOVED+enqueue/409).
-- [ ] Фаза 2: diff pipeline
-- [ ] Фаза 3: Playwright reporter
+- [x] **Фаза 2: diff pipeline** ✅ — pure-Go движок (image/png + orisano/pixelmatch, детерминизм + golden-тест,
+  content-address по декодированным пикселям `pixela-diff/v1`), River diff-воркер (`internal/diffrun`):
+  baseline-резолв строго по ветке, decode→pixelmatch→классификация (UNCHANGED/CHANGED/NEW), diff-PNG в S3,
+  error-isolation (битый PNG→ERROR, не падает), атомарный апдейт+enqueue FinalizeBuildJob (пересчёт PASSED/
+  REVIEW_REQUIRED, `FOR UPDATE`, идемпотентно). Integration-тест: все 5 статусов + детерминизм.
+- [x] **Фаза 3: Playwright reporter** ✅ — `@pixela/playwright-reporter` (TS, packages/sdk): `Reporter`-класс,
+  sha256 на клиенте, двухшаговая заливка с дедупом, GitLab-CI автодетект, шардинг (стабильный buildId),
+  soft-mode + retry-backoff, Mode A (заливает baseline+new для ревью). 16 unit-тестов, build/typecheck зелёные.
 - [ ] Фаза 4: дашборд + review UI
 - [ ] Фаза 5: approve + GitLab
 - [ ] Фаза 6: уведомления
