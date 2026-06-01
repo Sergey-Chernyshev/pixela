@@ -70,27 +70,29 @@
 - **Сессии дашборда — server-side в Redis** (B-03), секрет `SESSION_SECRET`.
 - **Smoke — Testcontainers** (хермётично), а не против поднятого compose.
 
-### Фаза 0 — что готово
+### Фаза 0 — что готово (бэкенд на Go)
 
-- pnpm-workspace: `apps/api` (NestJS, режимы **`API_MODE=http|worker`**), `apps/web`
-  (`@pixela/web` — Angular 21 standalone shell, lazy Home, `ng build` зелёный), `packages/sdk`
-  (`@pixela/playwright-reporter`, заготовка), `packages/shared` (контракт-типы, заготовка).
-- Prisma-схема 1:1 по `docs/spec/specs/03-data-model.md`; первая миграция `…_init` (без `BaselineVersion`).
-- `docker-compose.dev.yml`: postgres:16 + redis:7 + minio (host-порты параметризуемы через env, дефолты = спека).
-- **`GET /health`** — реальная проверка Postgres (`SELECT 1`) + Redis (`PING`): 200 если оба up, иначе 503;
-  смонтирован в корне (вне `/api`-префикса) как probe.
-- Зелёный smoke (`apps/api/test/health.e2e-spec.ts`) на Testcontainers: миграция на чистой БД + `/health` 200.
-- CI (`.gitlab-ci.yml`): install → lint → typecheck → build. Тесты (Testcontainers) — на docker-раннере позже.
+- `apps/api` — **Go-модуль**, один бинарь `pixela` с subcommands **`serve | worker | migrate | openapi`**
+  (stdlib flag, не `API_MODE`). Layout: `cmd/pixela`, `internal/{app,config,core,httpapi,db,redis,storage,
+  queue,diff,...}`. Конвенции: `docs/architecture/go-backend.md`.
+- Стек: **Huma v2 на chi** (OpenAPI 3.1), **pgx/v5 + sqlc** (схема `db/schema.sql` 1:1 по `03-data-model`),
+  **River** (Postgres-очередь), pure-Go diff-seam, **log/slog**, **caarlos0/env**. CGO_ENABLED=0.
+- `pixela migrate` — применяет схему (embedded, идемпотентно) + River-таблицы. `pixela openapi` — эмитит спеку.
+- **`/healthz`** (liveness) + **`/readyz`** (реальная проверка Postgres+Redis+MinIO) — заменяют одиночный `/health`.
+- Зелёный **Testcontainers-smoke** (`apps/api/test/smoke_test.go`, `-tags=integration`, `-race`): migrate на
+  чистой БД → `serve` → `/readyz` 200 со всеми up → graceful shutdown. Гейт `verify-go/scripts/gate.sh` зелёный.
+- `apps/web` — Angular 21 shell (без изменений). `packages/sdk` (TS reporter) + `packages/shared` (типы из OpenAPI).
+- CI (`.gitlab-ci.yml`): Go jobs (golangci-lint v2 + vet, build, test -race, integration DinD) + web-build.
+- Dockerfile: multi-stage → distroless/static, один образ / два `command:`.
 
 ### Как запустить (кратко; полностью — в README.md)
 
 ```bash
-pnpm install
-cp .env.example .env            # на машинах с занятыми 5432/9000 — поправь PIXELA_*_PORT и URL'ы
-pnpm dev:infra                  # postgres + redis + minio
-pnpm prisma:migrate             # применить схему
-pnpm dev:api                    # http :3000 → curl http://localhost:3000/health
-pnpm --filter @pixela/api test  # Testcontainers smoke (нужен Docker)
+pnpm dev:infra                  # postgres + redis(sessions) + minio (host-порты параметризуемы)
+cp .env.example .env && set -a && . ./.env && set +a
+pnpm migrate                    # cd apps/api && go run ./cmd/pixela migrate
+pnpm dev:api                    # go run ./cmd/pixela serve → curl :3000/readyz
+cd apps/api && go test -tags integration -race ./test/...   # Testcontainers smoke
 ```
 
 ## Чего НЕ делать

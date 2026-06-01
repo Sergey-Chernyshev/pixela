@@ -1,93 +1,90 @@
 # Pixela (`pixela`)
 
-Self-hosted **visual regression testing** platform — a single pnpm monorepo with the NestJS
-**API/worker**, the Angular **dashboard**, and the Playwright **SDK**.
+Self-hosted **visual regression testing** platform — a pnpm/Go monorepo with the **Go** API/worker,
+the Angular **dashboard**, and the Playwright **SDK** (TypeScript).
 
-> Full specification: [`docs/spec/`](docs/spec/). Architectural invariants and working
-> agreements: [`CLAUDE.md`](CLAUDE.md). Read those before changing anything.
+> Full specification: [`docs/spec/`](docs/spec/). Architectural invariants and working agreements:
+> [`CLAUDE.md`](CLAUDE.md). Go backend rulebook: [`docs/architecture/go-backend.md`](docs/architecture/go-backend.md)
+> (and ADR [`docs/adr/0001-backend-language-go.md`](docs/adr/0001-backend-language-go.md)). Read those
+> before changing anything.
 
 ## Layout
 
 ```
-apps/api          NestJS app — runs as HTTP API or diff worker (API_MODE=http|worker)
-apps/web          @pixela/web — Angular 21 standalone dashboard
-packages/sdk      @pixela/playwright-reporter (scaffold)
-packages/shared   shared TypeScript types mirroring the API contract (scaffold)
+apps/api          Go module — one binary, subcommands: pixela serve | worker | migrate | openapi
+apps/web          @pixela/web — Angular 21 standalone dashboard (TypeScript)
+packages/sdk      @pixela/playwright-reporter (TypeScript, scaffold)
+packages/shared   contract types generated from the API's OpenAPI (scaffold)
 docs/spec         the canonical product/engineering specification
-docker-compose.dev.yml   local infra: postgres + redis + minio
+docs/architecture/go-backend.md   the binding Go conventions
+docker-compose.dev.yml            local infra: postgres + redis (sessions) + minio
 ```
 
 ## Prerequisites
 
-- **Node 22** (`.nvmrc` → `nvm use`)
-- **pnpm 10** (`corepack enable` then `corepack use pnpm@10`)
-- **Docker** + Docker Compose v2 (for local infra and the smoke test via Testcontainers)
+- **Go 1.26** (`apps/api/go.mod` pins the toolchain)
+- **Node 22** + **pnpm 10** (`corepack enable`) — for `apps/web` and the TS packages
+- **Docker** + Docker Compose v2 — local infra and the Testcontainers integration smoke
 
 ## Quick start (dev)
 
 ```bash
-# 1. Install workspace dependencies
-pnpm install
+# 1. Bring up infra (postgres + redis + minio)
+pnpm dev:infra                     # docker compose -f docker-compose.dev.yml up -d
 
-# 2. Configure env
-cp .env.example .env            # dev defaults already match the compose file
+# 2. Configure env (the Go binary reads the environment, not a .env file)
+cp .env.example .env && set -a && . ./.env && set +a   # or use direnv
 
-# 3. Bring up infra (postgres + redis + minio)
-pnpm dev:infra                  # docker compose -f docker-compose.dev.yml up -d
+# 3. Apply the schema + queue tables on a clean DB
+pnpm migrate                       # cd apps/api && go run ./cmd/pixela migrate
 
-# 4. Apply the database schema
-pnpm prisma:migrate             # prisma migrate dev (first run creates the DB schema)
+# 4. Run the API (or `task -d apps/api dev` for hot reload via air)
+pnpm dev:api                       # cd apps/api && go run ./cmd/pixela serve  → :3000
 
-# 5. Run the API (hot reload)
-pnpm dev:api                    # http mode on :3000
-
-# 6. Verify it's alive (checks Postgres + Redis connectivity)
-curl -s http://localhost:3000/health    # → 200 { "status": "ok", ... }
+# 5. Verify readiness (checks Postgres + Redis + MinIO)
+curl -s http://localhost:3000/readyz   # → 200 { "status":"ok","checks":{...} }
 ```
 
-Run the **worker** mode instead of the HTTP server:
+Run the **worker** (diff-job consumer) instead of the HTTP server:
 
 ```bash
-API_MODE=worker pnpm --filter @pixela/api run start:dev
+cd apps/api && go run ./cmd/pixela worker
 ```
 
-Stop infra: `pnpm dev:infra:down`.
+Run the **dashboard** (`apps/web`): `pnpm dev:web` → http://localhost:4200. Stop infra: `pnpm dev:infra:down`.
 
-Run the **dashboard** (`apps/web`):
+## Health probes
 
-```bash
-pnpm dev:web                    # ng serve → http://localhost:4200
-```
+- **`GET /healthz`** — liveness: process-only, dependency-free, always 200 (no restart loop on a blip).
+- **`GET /readyz`** — readiness: 200 only when Postgres, Redis and MinIO are all reachable, else 503 with
+  the failing dependency. Used by docker-compose/CI. This is the "one green screenshot proves the harness"
+  baseline of Phase 0.
 
-## Health endpoint
+## Backend tooling (`apps/api`)
 
-`GET /health` returns **200** only when both Postgres (real `SELECT 1`) and Redis (real
-`PING`) are reachable; otherwise **503**. It is the liveness/readiness probe used by
-docker-compose and CI. This is the "one green screenshot proves the harness" baseline of
-Phase 0.
+[Taskfile](https://taskfile.dev) is the command surface — `task -d apps/api <name>`:
 
-## Scripts
+| Task | What it does |
+| --- | --- |
+| `dev` | hot reload (air), `pixela serve` |
+| `build` / `run` | build / run the binary |
+| `lint` / `vet` / `fmt` | golangci-lint v2 / `go vet` / gofmt |
+| `test` | `go test -race ./...` (unit) |
+| `test:integration` | Testcontainers smoke (`-tags=integration`) |
+| `generate` | `sqlc generate` + emit `api/openapi.yaml` |
+| `migrate` | `pixela migrate` |
 
-| Script                                         | What it does                                                            |
-| ---------------------------------------------- | ----------------------------------------------------------------------- |
-| `pnpm lint` / `pnpm lint:fix`                  | ESLint across the workspace                                             |
-| `pnpm typecheck`                               | `tsc --noEmit` in every package                                         |
-| `pnpm format` / `pnpm format:check`            | Prettier                                                                |
-| `pnpm build`                                   | Build every package                                                     |
-| `pnpm test`                                    | Run all package tests (API smoke uses Testcontainers — Docker required) |
-| `pnpm dev:infra` / `pnpm dev:infra:down`       | Start/stop local infra                                                  |
-| `pnpm dev:api` / `pnpm dev:web`                | Run the API (hot reload) / the Angular dashboard                        |
-| `pnpm prisma:generate` / `pnpm prisma:migrate` | Prisma client / migrations                                              |
+Pre-commit gate (also what CI runs): `bash .claude/skills/verify-go/scripts/gate.sh`.
 
 ## Tests
 
-The Phase 0 smoke test (`apps/api`) spins up **ephemeral** Postgres and Redis containers
-via [Testcontainers](https://testcontainers.com/), boots the Nest app, and asserts
-`/health` returns 200 with real connectivity. It needs a running Docker daemon but **no**
-pre-started infra and leaves no state behind.
+The Phase-0 integration smoke (`apps/api/test`, behind `-tags=integration`) spins up **ephemeral**
+Postgres + Redis + MinIO via [Testcontainers](https://testcontainers.com/), runs `pixela migrate` on a
+clean DB, boots `pixela serve`, and asserts `/readyz` is 200 with every dependency up — then shuts down
+cleanly (race-checked). Needs a Docker daemon; leaves no state behind.
 
 ```bash
-pnpm --filter @pixela/api run test
+cd apps/api && go test -tags integration -race ./test/...
 ```
 
 ## License
