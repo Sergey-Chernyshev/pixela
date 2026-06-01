@@ -1,0 +1,17 @@
+# Deny-by-default: ignore everything, then re-include only what `go build` needs.
+# Keeps the build context tiny and reproducible (no node_modules, no dist, no
+# secrets, no test artifacts). vendor/ is intentionally absent — we `go mod download`.
+*
+
+# ── Re-include the Go build inputs ───────────────────────────────────────────
+!go.mod
+!go.sum
+!cmd/
+!internal/
+!db/
+
+# ── Re-exclude noise that may live under the re-included dirs ─────────────────
+**/*_test.go
+**/testdata/
+**/*.md
+**/.DS_Store

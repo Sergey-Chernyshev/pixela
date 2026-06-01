@@ -1,0 +1,41 @@
+# golangci-lint v2 config — Pixela Go backend.
+# Rulebook §13: default `standard` bundle (errcheck, govet, ineffassign,
+# staticcheck, unused) + a curated set; gofmt + goimports as formatters with a
+# local-prefix. Pin the CLI version in CI (Taskfile `tools:install`), never float.
+# Schema verified against golangci-lint.run/docs/configuration/file (v2).
+version: "2"
+
+linters:
+  # `standard` = errcheck + govet + ineffassign + staticcheck + unused.
+  default: standard
+  enable:
+    - revive          # golint successor: style/idiom checks
+    - gocritic        # opinionated correctness/perf/style diagnostics
+    - gosec           # security (auth/secrets/crypto service surface)
+    - bodyclose       # HTTP response bodies closed
+    - rowserrcheck    # sql.Rows.Err() checked (pgx resource leaks)
+    - sqlclosecheck   # sql.Rows / sql.Stmt closed
+    - noctx           # no HTTP/SQL calls without context
+    - errorlint       # %w / errors.Is / errors.As correctness (rulebook §5)
+    - contextcheck    # context propagated, not dropped
+    - misspell        # comment/string typos
+    - unconvert       # redundant type conversions
+    - unparam         # unused function params/results
+    - nilerr          # `return nil` after a non-nil error check
+
+  exclusions:
+    # v2 dropped the implicit human-friendly exclusions — re-opt-in here.
+    presets:
+      - comments               # exported-symbol comment nags
+      - std-error-handling     # os.Stdout.Write etc. errcheck noise
+      - common-false-positives # well-known FP patterns
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      # Group our own imports last, under the module path.
+      local-prefixes:
+        - github.com/Sergey-Chernyshev/pixela

@@ -1,0 +1,36 @@
+# air hot-reload config — Pixela Go backend (apps/api).
+# Rebuilds the single `pixela` binary and runs it in `serve` mode on every change.
+# Rulebook §13. Run via `task dev` (preferred) or `air -c .air.toml`.
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Build the single binary, then run it as `pixela serve`.
+  cmd = "go build -o ./tmp/pixela ./cmd/pixela"
+  bin = "./tmp/pixela"
+  full_bin = "./tmp/pixela serve"
+  # Watch Go sources + the schema (regenerate/migrate are manual via `task`).
+  include_ext = ["go"]
+  include_dir = ["cmd", "internal", "db"]
+  exclude_dir = ["tmp", "bin", "test", "node_modules", "dist", "api"]
+  exclude_regex = ["_test\\.go"]
+  # Don't trigger a rebuild on files that only changed mtime, not content.
+  exclude_unchanged = true
+  follow_symlink = false
+  # Kill + restart on rebuild; give in-flight requests a moment to drain.
+  kill_delay = "500ms"
+  send_interrupt = true
+  stop_on_error = true
+  delay = 200 # ms — debounce rapid saves
+
+[log]
+  time = true
+
+[color]
+  main = "magenta"
+  watcher = "cyan"
+  build = "yellow"
+  runner = "green"
+
+[misc]
+  clean_on_exit = true

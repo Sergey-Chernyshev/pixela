@@ -1,0 +1,97 @@
+# go-task command surface for the Pixela Go backend (apps/api).
+# Rulebook §13. Run from this dir: `task <name>` (or `task -d apps/api <name>`).
+# Pinned tool versions live in the `vars` block + `tools:install`.
+version: "3"
+
+vars:
+  # Single source of truth for the binary, entrypoint, and module path.
+  BINARY: pixela
+  CMD: ./cmd/pixela
+  MODULE: github.com/Sergey-Chernyshev/pixela/apps/api
+  OPENAPI_OUT: api/openapi.yaml
+  # Pinned tool versions — keep in lockstep with CI (.gitlab-ci.yml). Never float.
+  GOLANGCI_VERSION: v2.12.2
+  SQLC_VERSION: v1.31.1
+  ATLAS_VERSION: v1.2.0
+  AIR_VERSION: v1.65.3
+
+tasks:
+  default:
+    desc: List available tasks.
+    cmds:
+      - task --list
+    silent: true
+
+  dev:
+    desc: Hot-reload the API in `serve` mode (air rebuilds the single binary).
+    cmds:
+      - air -c .air.toml
+
+  build:
+    desc: Static, stripped, trimpath build of the pixela binary → ./bin/pixela.
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - go build -trimpath -ldflags="-s -w" -o ./bin/{{.BINARY}} {{.CMD}}
+
+  run:
+    desc: "Run the binary directly. Pass a subcommand: `task run -- serve`."
+    cmds:
+      - go run {{.CMD}} {{.CLI_ARGS}}
+
+  lint:
+    desc: golangci-lint v2 (curated linters + formatters check).
+    cmds:
+      - golangci-lint run
+
+  vet:
+    desc: go vet (separate step — bundled govet can lag upstream).
+    cmds:
+      - go vet ./...
+
+  fmt:
+    desc: Format all Go sources in place.
+    cmds:
+      - gofmt -w .
+
+  test:
+    desc: Unit tests with the race detector.
+    cmds:
+      - go test -race ./...
+
+  test:integration:
+    desc: Testcontainers integration tests (postgres + minio); needs Docker.
+    cmds:
+      - go test -race -tags=integration ./test/...
+
+  generate:
+    desc: Regenerate sqlc code + emit the OpenAPI spec from Go handler structs.
+    cmds:
+      - sqlc generate
+      - go run {{.CMD}} openapi > {{.OPENAPI_OUT}}
+
+  migrate:
+    desc: Apply Atlas migrations (DATABASE_URL must be set).
+    cmds:
+      - go run {{.CMD}} migrate
+
+  tidy:
+    desc: Tidy go.mod / go.sum.
+    cmds:
+      - go mod tidy
+
+  tools:install:
+    desc: Install pinned dev tools (golangci-lint v2, sqlc, atlas, air).
+    cmds:
+      - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_VERSION}}
+      - go install github.com/sqlc-dev/sqlc/cmd/sqlc@{{.SQLC_VERSION}}
+      - go install ariga.io/atlas/cmd/atlas@{{.ATLAS_VERSION}}
+      - go install github.com/air-verse/air@{{.AIR_VERSION}}
+
+  ci:
+    desc: Full local CI gate — lint + vet + build + test.
+    cmds:
+      - task: lint
+      - task: vet
+      - task: build
+      - task: test
