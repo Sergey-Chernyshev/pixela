@@ -26,19 +26,26 @@
 
 ## Стек
 
-- Backend: **NestJS** + **Prisma** + **PostgreSQL** + **BullMQ** (Redis)
-- Diff: **pixelmatch** (default), **sharp** (обработка), **odiff** (опц.)
-- Storage: **S3-совместимое** (MinIO для self-host), CAS по sha256
+> ⚠️ Бэкенд переписан на **Go** (ADR `docs/adr/0001-backend-language-go.md`). Конвенции и rulebook —
+> `docs/architecture/go-backend.md` (придерживаться при любом Go-коде). Спека `02-architecture.md`/
+> `backend/tech-decisions.md` описывает прежний NestJS-стек — для бэка она заменена этим ADR; инварианты,
+> data-model и API-контракт остаются в силе.
+
+- Backend: **Go 1.26** (один бинарь, subcommands `serve|worker|migrate`) · **Huma v2 на chi** (code-first
+  OpenAPI 3.1) · **pgx/v5 + sqlc + Atlas** · **River** (Postgres-транзакционная очередь)
+- Diff: pure-Go **orisano/pixelmatch + image/png** (`CGO_ENABLED=0`); libvips — за seam'ом, не в v1
+- Storage: **S3-совместимое** (MinIO для self-host), CAS по sha256 (по *декодированным* пикселям)
 - Frontend: **Angular** (standalone + signals), **Angular CDK**
-- Playwright: custom **reporter** (`@pixela/playwright-reporter`) + тонкий SDK
-- Infra: **Docker Compose** + **Traefik**
+- Playwright: custom **reporter** (`@pixela/playwright-reporter`, TS) + тонкий SDK; контракт-типы генерятся
+  из OpenAPI бэка (`openapi-typescript` → `packages/shared`)
+- Redis: **только dashboard-сессии** (не очередь). Infra: **Docker Compose** + **Traefik**
 
 ## Стиль кода и работы
 
-- TypeScript strict mode везде. Без `any` без явного комментария-обоснования.
-- Backend: модульная структура NestJS (feature modules). DTO + class-validator на каждом endpoint.
+- Backend (Go): см. `docs/architecture/go-backend.md` — lightweight hexagonal, hand-wired DI, `internal/core`
+  без зависимостей, Huma-struct-валидация на каждом endpoint, errors as values. Frontend/SDK: TypeScript strict, без `any` без обоснования.
 - Frontend: standalone components, signals для состояния, OnPush change detection, без NgModules.
-- Тесты: Vitest/Jest для backend unit, Playwright для e2e. Каждый PR — зелёные тесты.
+- Тесты: Go `testing` + Testcontainers (`-race`, goleak) для бэка; Playwright для e2e. Каждый PR — зелёные тесты.
 - Коммиты атомарные, conventional commits (`feat:`, `fix:`, `chore:`...).
 - Никаких секретов в коде. Всё через env. `.env.example` всегда актуален.
 
