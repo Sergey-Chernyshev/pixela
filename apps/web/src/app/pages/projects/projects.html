@@ -20,7 +20,8 @@
         </button>
       </div>
     } @else {
-      <!-- summary strip: only the project count is backed by the API; the mock's other KPIs are omitted -->
+      <!-- summary strip: project count + org-wide open reviews (both real sums); the mock's other KPIs
+           (tracked snapshots, flaky tests) have no aggregate endpoint and are omitted. -->
       <div class="summary pxp-summary">
         <div class="scard">
           <div class="lab">
@@ -36,6 +37,20 @@
             <div class="sk pxp-sk-num"></div>
           } @else {
             <div class="num tnum">{{ count() }}</div>
+          }
+        </div>
+        <div class="scard" [class.amber]="totalOpenReviews() > 0">
+          <div class="lab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            Открытых проверок
+          </div>
+          @if (loading()) {
+            <div class="sk pxp-sk-num"></div>
+          } @else {
+            <div class="num tnum">{{ totalOpenReviews() }}</div>
           }
         </div>
       </div>
@@ -100,6 +115,21 @@
                 <span [class]="roleClass(p.role)">{{ roleLabel(p.role) }}</span>
               </div>
 
+              @let hp = healthPct(p);
+              @if (hp !== null) {
+                <div class="pxp-health">
+                  <div class="pxp-health-row">
+                    <span class="pxp-k">Снимки в норме</span>
+                    <span class="pxp-v mono"
+                      >{{ p.healthOk }} / {{ p.healthTotal }} · {{ hp }}%</span
+                    >
+                  </div>
+                  <div class="pxp-bar">
+                    <i class="ok" [style.width.%]="okWidth(p)"></i>
+                  </div>
+                </div>
+              }
+
               <div class="pxp-meta">
                 <div class="pxp-meta-row">
                   <span class="pxp-k">Ветка по умолчанию</span>
@@ -115,6 +145,22 @@
                     {{ createdLabel(p.createdAt) }}
                   </span>
                 </div>
+              </div>
+
+              <div class="pxp-foot">
+                <span class="pxp-members">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                  {{ p.memberCount }} {{ membersWord(p.memberCount) }}
+                </span>
+                @if (p.openReviews > 0) {
+                  <span class="pxp-open">{{ p.openReviews }} {{ reviewsWord(p.openReviews) }}</span>
+                } @else if (p.lastBuildStatus) {
+                  <px-status [status]="p.lastBuildStatus" />
+                }
               </div>
             </a>
           }

@@ -2,9 +2,12 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import type {
+  ActivityList,
+  BaselineList,
   BuildDetail,
   BuildsPage,
   LoginResponse,
+  MemberList,
   ProjectList,
   SnapshotReview,
   User,
@@ -72,5 +75,21 @@ export class ApiService {
 
   snapshot(snapshotId: string): Observable<SnapshotReview> {
     return this.http.get<SnapshotReview>(this.url(`/snapshots/${encodeURIComponent(snapshotId)}`));
+  }
+
+  members(projectId: string): Observable<MemberList> {
+    return this.http.get<MemberList>(
+      this.url(`/projects/${encodeURIComponent(projectId)}/members`),
+    );
+  }
+
+  baselines(projectId: string): Observable<BaselineList> {
+    return this.http.get<BaselineList>(
+      this.url(`/projects/${encodeURIComponent(projectId)}/baselines`),
+    );
+  }
+
+  activity(): Observable<ActivityList> {
+    return this.http.get<ActivityList>(this.url('/activity'));
   }
 }

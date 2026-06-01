@@ -39,17 +39,18 @@ export class AppShell {
   protected readonly nav = computed<NavItem[]>(() => {
     if (this.mode() === 'project') {
       const pid = this.projectId();
+      const p = (seg: string): string[] | undefined => (pid ? ['/projects', pid, seg] : undefined);
       return [
-        { key: 'builds', label: 'Сборки', link: pid ? ['/projects', pid, 'builds'] : undefined },
+        { key: 'builds', label: 'Сборки', link: p('builds') },
+        { key: 'baselines', label: 'Базовые линии', link: p('baselines') },
+        { key: 'members', label: 'Участники', link: p('members') },
         { key: 'snapshots', label: 'Снимки' },
-        { key: 'baselines', label: 'Базовые линии' },
         { key: 'settings', label: 'Настройки' },
       ];
     }
     return [
       { key: 'projects', label: 'Проекты', link: ['/'] },
-      { key: 'members', label: 'Участники' },
-      { key: 'activity', label: 'Активность' },
+      { key: 'activity', label: 'Активность', link: ['/activity'] },
       { key: 'settings', label: 'Настройки' },
     ];
   });

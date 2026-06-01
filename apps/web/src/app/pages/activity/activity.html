@@ -1,0 +1,108 @@
+<px-app-shell mode="org" active="activity" title="Активность" subtitle="События по всем проектам">
+  <div class="body">
+    <div class="pxa-wrap">
+      @if (error()) {
+        <div class="empty-state pxa-center">
+          <div class="ei">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 9v4M12 17h.01" />
+              <path
+                d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"
+              />
+            </svg>
+          </div>
+          <h3>Не удалось загрузить</h3>
+          <p>{{ error() }}</p>
+          <button class="btn" (click)="load()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v4h-4" />
+            </svg>
+            Повторить
+          </button>
+        </div>
+      } @else if (loading()) {
+        <div class="pxa-daygroup">
+          <div class="pxa-daylbl">
+            <span class="sk pxa-sk-day"></span>
+          </div>
+          <div class="pxa-feed">
+            @for (s of skeletonRows; track s) {
+              <div class="pxa-ev">
+                <span class="sk pxa-sk-marker"></span>
+                <div class="pxa-ec">
+                  <div class="sk pxa-sk-line"></div>
+                  <div class="sk pxa-sk-tag"></div>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      } @else if (isEmpty()) {
+        <div class="empty-state pxa-center">
+          <div class="ei">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+          </div>
+          <h3>Пока нет событий</h3>
+          <p>Здесь появятся одобрения и отклонения снимков по всем вашим проектам.</p>
+        </div>
+      } @else {
+        @for (group of groups(); track group.key) {
+          <div class="pxa-daygroup">
+            <div class="pxa-daylbl">{{ group.label }}</div>
+            <div class="pxa-feed">
+              @for (ev of group.events; track ev.id) {
+                <div class="pxa-ev">
+                  @if (isApprove(ev)) {
+                    <span class="pxa-marker pxa-marker--approved" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    </span>
+                  } @else {
+                    <span class="pxa-marker pxa-marker--rejected" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                        <path d="M18 6 6 18M6 6l12 12" />
+                      </svg>
+                    </span>
+                  }
+
+                  <div class="pxa-ec">
+                    <div class="pxa-erow">
+                      <div class="pxa-txt">
+                        <span
+                          class="avatar avatar--xs pxa-ava"
+                          [style.background]="avatarColor(ev.user)"
+                          aria-hidden="true"
+                          >{{ initials(ev.user) }}</span
+                        >
+                        <span class="pxa-who mono">{{ ev.user }}</span>
+                        {{ actionText(ev) }}
+                        <span class="pxa-snap mono">{{ ev.snapshotName }}</span>
+                      </div>
+                      <span class="pxa-when mono">{{ relTime(ev.at) }}</span>
+                    </div>
+
+                    <div class="pxa-meta2">
+                      <a class="pxa-ptag" [routerLink]="['/snapshots', ev.snapshotId]">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <circle cx="9" cy="9" r="2" />
+                          <path d="m21 15-5-5L5 21" />
+                        </svg>
+                        <span class="pxa-pname">{{ ev.projectName }}</span>
+                        <span class="pxa-sep">·</span>
+                        <span class="mono">{{ ev.branch }}</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </div>
+</px-app-shell>

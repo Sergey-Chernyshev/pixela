@@ -1,0 +1,192 @@
+<px-app-shell
+  mode="project"
+  active="baselines"
+  title="Базовые линии"
+  subtitle="Эталоны по веткам"
+  [projectName]="projectName()"
+  [projectId]="projectId()"
+>
+  <div class="body">
+    @if (error()) {
+      <div class="empty-state pxb-center">
+        <div class="ei">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 9v4M12 17h.01" />
+            <path
+              d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"
+            />
+          </svg>
+        </div>
+        <h3>Не удалось загрузить</h3>
+        <p>Базовые линии этого проекта временно недоступны. Попробуйте обновить страницу позже.</p>
+      </div>
+    } @else {
+      <!-- summary strip: every number is computed from the resolved baselines (total, distinct
+           branches, updated-this-week, stale >90d). The mock's "средний возраст" / "N участниками"
+           have no backing field and are omitted. -->
+      <div class="summary pxb-summary">
+        <div class="scard">
+          <div class="lab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-5-5L5 21" />
+            </svg>
+            Базовых линий
+          </div>
+          @if (loading()) {
+            <div class="sk pxb-sk-num"></div>
+          } @else {
+            <div class="num">{{ count() }}</div>
+          }
+        </div>
+        <div class="scard">
+          <div class="lab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="6" cy="6" r="3" />
+              <circle cx="6" cy="18" r="3" />
+              <path d="M6 9v6" />
+              <path d="M18 6a9 9 0 0 1-9 9" />
+              <circle cx="18" cy="6" r="3" />
+            </svg>
+            Веток
+          </div>
+          @if (loading()) {
+            <div class="sk pxb-sk-num"></div>
+          } @else {
+            <div class="num">{{ branchCount() }}</div>
+          }
+        </div>
+        <div class="scard">
+          <div class="lab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            Обновлено за неделю
+          </div>
+          @if (loading()) {
+            <div class="sk pxb-sk-num"></div>
+          } @else {
+            <div class="num">{{ updatedThisWeek() }}</div>
+          }
+        </div>
+        <div class="scard" [class.amber]="staleCount() > 0">
+          <div class="lab">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+            Устаревших
+          </div>
+          @if (loading()) {
+            <div class="sk pxb-sk-num"></div>
+          } @else {
+            <div class="num">{{ staleCount() }}</div>
+            <div class="sub">старше {{ 90 }} дней</div>
+          }
+        </div>
+      </div>
+
+      <div class="secrow">
+        <h2>Принятые эталоны</h2>
+      </div>
+
+      @if (loading()) {
+        <div class="pxb-grid">
+          @for (s of skeletons; track s) {
+            <div class="pxb-card">
+              <div class="sk pxb-sk-img"></div>
+              <div class="pxb-meta">
+                <div class="sk pxb-sk-name"></div>
+                <div class="sk pxb-sk-det"></div>
+              </div>
+              <div class="pxb-by">
+                <div class="sk pxb-sk-who"></div>
+              </div>
+            </div>
+          }
+        </div>
+      } @else if (isEmpty()) {
+        <div class="empty-state pxb-center">
+          <div class="ei">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-5-5L5 21" />
+            </svg>
+          </div>
+          <h3>Пока нет базовых линий</h3>
+          <p>
+            Примите первый снимок в ревью — он станет эталоном для своей ветки и появится здесь.
+          </p>
+        </div>
+      } @else {
+        <div class="pxb-grid">
+          @for (b of items(); track b.id) {
+            <div class="pxb-card" [class.pxb-stale]="isStale(b)">
+              <div class="pxb-img">
+                @if (b.imageUrl) {
+                  <img [src]="b.imageUrl" [alt]="b.name" loading="lazy" />
+                } @else {
+                  <span class="pxb-noimg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <circle cx="9" cy="9" r="2" />
+                      <path d="m21 15-5-5L5 21" />
+                    </svg>
+                  </span>
+                }
+                <span class="pxb-badge">
+                  <span class="status status--approved pxb-eta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                    Эталон
+                  </span>
+                </span>
+                <span class="pxb-age" [class.pxb-age-stale]="isStale(b)">{{
+                  relTime(b.updatedAt)
+                }}</span>
+              </div>
+
+              <div class="pxb-meta">
+                <div class="pxb-nm mono" [title]="b.name">{{ b.name }}</div>
+                <div class="pxb-det mono">{{ b.browser }} · {{ b.viewport }}</div>
+                <div class="pxb-branch">
+                  <span class="chip pxb-chip mono">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="6" cy="6" r="3" />
+                      <circle cx="6" cy="18" r="3" />
+                      <path d="M6 9v6" />
+                      <path d="M18 6a9 9 0 0 1-9 9" />
+                      <circle cx="18" cy="6" r="3" />
+                    </svg>
+                    {{ b.branch }}
+                  </span>
+                  @if (isStale(b)) {
+                    <span class="pxb-staletag">устарела</span>
+                  }
+                </div>
+              </div>
+
+              <div class="pxb-by">
+                <svg
+                  class="pxb-by-ico"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                <span class="pxb-who mono" [title]="b.approvedBy || ''">{{
+                  b.approvedBy || '—'
+                }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+</px-app-shell>

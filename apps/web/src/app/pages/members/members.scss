@@ -1,0 +1,100 @@
+/* Project members — table chrome ported from the design mock's .mcell.
+   Global classes (.body .secrow .tbl .role .avatar .empty-state .sk .mono) come from styles.scss
+   and are reused as-is; only the member-name cell, the (no-colour-field) avatar fill, the zero
+   marker, the section count and the loading skeletons live here, namespaced pxm-* to avoid leaks. */
+
+/* the rows are informational, not links (no member-detail route) — drop the global pointer cursor */
+.pxm-tbl tbody tr {
+  cursor: default;
+}
+
+/* section count next to the "Команда" heading */
+.pxm-count {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border-faint);
+  border-radius: 6px;
+  padding: 1px 7px;
+  vertical-align: middle;
+}
+
+/* member identity cell: avatar + name/email */
+.pxm-mcell {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.pxm-ava {
+  /* the Member DTO carries no per-member colour, so use the shared indigo→violet brand fill */
+  background: linear-gradient(135deg, #6e8afa, #9d7bf0);
+}
+.pxm-text {
+  min-width: 0;
+}
+.pxm-nm {
+  font-weight: 550;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pxm-em {
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* total-reviews cell */
+.pxm-tbl tbody td.num b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.pxm-zero {
+  font-size: 13px;
+  color: var(--text-3);
+}
+
+/* honest, centered empty / error block inside the scrolling body */
+.pxm-center {
+  margin: 56px auto 0;
+}
+
+/* loading skeletons (mirror the resolved row shape) */
+.pxm-sk-ava {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.pxm-sk-text {
+  flex: 1;
+  min-width: 0;
+}
+.pxm-sk-name {
+  width: 140px;
+  height: 13px;
+  margin-bottom: 7px;
+}
+.pxm-sk-email {
+  width: 180px;
+  height: 11px;
+}
+.pxm-sk-role {
+  display: inline-block;
+  width: 96px;
+  height: 23px;
+  border-radius: 6px;
+}
+.pxm-sk-num {
+  display: inline-block;
+  width: 28px;
+  height: 14px;
+  border-radius: 5px;
+}

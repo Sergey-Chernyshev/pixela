@@ -104,6 +104,22 @@ export class BuildDetail {
     this.onlyChanged.update((v) => !v);
   }
 
+  /** The thumbnail to show: the new capture when present (changed/new/unchanged), else the baseline
+   *  (removed). Returns null only when neither blob exists. Presigned by the server. */
+  protected thumbUrl(snap: SnapshotBrief): string | null {
+    return snap.images?.new ?? snap.images?.baseline ?? null;
+  }
+
+  /** The diff overlay PNG, shown only on CHANGED cards (aligns over the new capture). */
+  protected diffOverlay(snap: SnapshotBrief): string | null {
+    return snap.status === 'CHANGED' ? (snap.images?.diff ?? null) : null;
+  }
+
+  /** Status modifier class for the thumbnail (grayscale removed, dim unchanged — mirrors the mock). */
+  protected thumbClass(snap: SnapshotBrief): string {
+    return `thumb--${snap.status.toLowerCase()}`;
+  }
+
   /** diffRatio (0..1) → percentage string, only when present. */
   protected pct(snap: SnapshotBrief): string | null {
     if (snap.diffRatio == null) return null;

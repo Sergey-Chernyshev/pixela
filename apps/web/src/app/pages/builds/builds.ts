@@ -10,7 +10,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { type Observable, catchError, of, switchMap } from 'rxjs';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import type { BuildsPage, ProjectList } from '@pixela/shared';
+import type { BuildListItem, BuildsPage, ProjectList } from '@pixela/shared';
 import { ApiService } from '../../core/api';
 import { AppShell } from '../../layout/app-shell';
 import { CountChips } from '../../shared/count-chips';
@@ -116,6 +116,16 @@ export class Builds {
 
   protected shortSha(sha: string): string {
     return sha.slice(0, 7);
+  }
+
+  /** Real run duration (finalizedAt − createdAt) as "2м 14с"; null while the build is still running. */
+  protected duration(b: BuildListItem): string | null {
+    if (!b.finalizedAt) return null;
+    const ms = new Date(b.finalizedAt).getTime() - new Date(b.createdAt).getTime();
+    if (!Number.isFinite(ms) || ms < 0) return null;
+    const sec = Math.round(ms / 1000);
+    const min = Math.floor(sec / 60);
+    return min > 0 ? `${min}м ${sec % 60}с` : `${sec}с`;
   }
 
   /** Russian relative time ("8 мин", "1 ч", "вчера", "2 дн", "сейчас"). */

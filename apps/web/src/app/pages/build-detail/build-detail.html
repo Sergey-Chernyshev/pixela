@@ -158,17 +158,32 @@
       <div class="grid">
         @for (snap of visible(); track snap.id) {
           <a class="card" [routerLink]="['/snapshots', snap.id]">
-            <span class="ribbon status--{{ snap.status.toLowerCase() }}"></span>
-            <div class="cardbody">
-              <div class="cardtop">
-                <px-status [status]="snap.status" />
-                @let p = pct(snap);
-                @if (p) {
-                  <span class="pct {{ pctClass(snap) }} mono">{{ p }}</span>
+            <div class="thumb {{ thumbClass(snap) }}">
+              @let t = thumbUrl(snap);
+              @if (t) {
+                <img class="shot" [src]="t" alt="" loading="lazy" />
+                @let d = diffOverlay(snap);
+                @if (d) {
+                  <img class="dband" [src]="d" alt="" loading="lazy" />
                 }
-              </div>
-              <div class="nm mono">{{ snap.name }}</div>
-              <div class="meta mono">{{ snap.browser }} · {{ snap.viewport }}</div>
+              } @else {
+                <div class="noimg">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="9" cy="9" r="2" />
+                    <path d="m21 15-5-5L5 21" />
+                  </svg>
+                </div>
+              }
+              <span class="rib"><px-status [status]="snap.status" /></span>
+              <span class="fade"></span>
+            </div>
+            <div class="cardfoot">
+              <span class="nm mono">{{ snap.name }}</span>
+              @let p = pct(snap);
+              @if (p) {
+                <span class="pct {{ pctClass(snap) }} mono">{{ p }}</span>
+              }
             </div>
           </a>
         }

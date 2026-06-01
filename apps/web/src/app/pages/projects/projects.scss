@@ -153,3 +153,72 @@ a.pxp-card:hover {
 .pxp-card .pxp-sk-line + .pxp-sk-line {
   width: 70%;
 }
+
+/* health bar (latest build's in-norm ratio) */
+.pxp-health {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pxp-health-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.pxp-health-row .pxp-k {
+  color: var(--text-2);
+}
+.pxp-health-row .pxp-v {
+  color: var(--text-1);
+}
+.pxp-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+  overflow: hidden;
+  display: flex;
+}
+.pxp-bar i {
+  height: 100%;
+  display: block;
+}
+.pxp-bar i.ok {
+  background: var(--ok);
+}
+
+/* card footer: member count + open-reviews tag / last-build status */
+.pxp-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border-faint);
+}
+.pxp-members {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pxp-members svg {
+  width: 13px;
+  height: 13px;
+}
+.pxp-open {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--changed);
+  background: var(--changed-bg);
+  border: 1px solid rgba(224, 165, 62, 0.25);
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+.pxp-foot px-status {
+  margin-left: auto;
+}

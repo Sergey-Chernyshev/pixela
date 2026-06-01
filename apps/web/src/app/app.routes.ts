@@ -18,6 +18,21 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/builds/builds').then((m) => m.Builds),
   },
   {
+    path: 'projects/:projectId/members',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/members/members').then((m) => m.Members),
+  },
+  {
+    path: 'projects/:projectId/baselines',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/baselines/baselines').then((m) => m.Baselines),
+  },
+  {
+    path: 'activity',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/activity/activity').then((m) => m.Activity),
+  },
+  {
     path: 'builds/:buildId',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/build-detail/build-detail').then((m) => m.BuildDetail),

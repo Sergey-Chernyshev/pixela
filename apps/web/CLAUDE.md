@@ -37,13 +37,18 @@ Angular 21 (standalone, signals, OnPush) · Angular CDK · SCSS · pnpm · Node 
   (токены + компоненты + shell). Компоненты-раньше-страниц: `shared/` (`px-status`, `px-count-chips`),
   `layout/app-shell` (sidebar org/project + topbar). Spine `core/`: типобезопасный `ApiService` на
   `@pixela/shared`, `SessionService` (signal-сессия), `authGuard`/`guestGuard`, credentials-interceptor
-  (cookie). 5 экранов на реальном API: **login** (email+пароль), **projects** (обзор орг.), **builds**
-  (лента CI + пагинация), **build-detail** (грид снимков), **review** (центр: 4 режима side/overlay/onion/
-  curtain, **синхро-зум F-26**, клавиши A/R/1-4, presigned-картинки, история). Dev-прокси `/api`→:3000.
-  `ng build` зелёный. **Честно к API**: моки дизайна без бэкенда (health/sparkline/аватары/миниатюры
-  build-detail/duration) — опущены, не фабрикуются. approve/reject — заглушки до Фазы 5.
-  Не реализованы экраны без бэкенда (members/settings/activity/snapshots/baselines/testtree/testhistory/
-  reviewqueue) — пункты навигации видимы, но инертны до своих фаз.
+  (cookie). 8 экранов на реальном API: **login** (email+пароль), **projects** (обзор орг. + health-бар/
+  open-reviews/участники/last-build), **builds** (лента CI + пагинация + длительность), **build-detail**
+  (грид снимков с presigned-миниатюрами), **review** (центр: 4 режима side/overlay/onion/curtain,
+  **синхро-зум F-26**, клавиши A/R/1-4, presigned-картинки, история), **members** (роли + проверки),
+  **baselines** (эталоны по веткам + миниатюры + staleness>90д), **activity** (орг-лента approve/reject,
+  day-grouping). Dev-прокси `/api`→:3000. `ng build` + `ng test` зелёные.
+  **Честно к API** (выбор владельца — вариант A: реальные ручки, без фабрикации, без смены контракта SDK):
+  все агрегаты считаются из существующих строк (health=in-norm ratio последней сборки, open-reviews,
+  members, activity из approval_events, baselines с presigned-thumbnail, длительность из finalized_at,
+  миниатюры build-detail из MinIO). approve/reject — заглушки до Фазы 5.
+  Без бэкенда остаются: settings (config-write), snapshots-каталог, testtree/testhistory (нужны Playwright-
+  аннотации = категория B), reviewqueue (группировка диффов = C) — инертные пункты навигации до своих фаз.
 
 ## Как запустить (из корня монорепо)
 

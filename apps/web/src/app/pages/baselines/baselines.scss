@@ -1,0 +1,187 @@
+/* Baselines — baseline-card chrome ported from project/baselines.html (.bl / .img / .age / .meta / .by).
+   Global classes (.body .summary .scard .secrow .status .chip .empty-state .sk .mono .num) come from
+   styles.scss and are reused as-is; only the card grid, thumbnail well, age badge and skeletons live
+   here, namespaced pxb-* so nothing leaks. */
+
+.pxb-summary {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* honest, centered empty / error block inside the scrolling body */
+.pxb-center {
+  margin: 56px auto 0;
+}
+
+.pxb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+  gap: 16px;
+}
+
+.pxb-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.12s;
+}
+.pxb-card:hover {
+  border-color: var(--border-strong);
+}
+
+/* thumbnail well */
+.pxb-img {
+  height: 150px;
+  background: var(--surface-inset);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.pxb-img img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: block;
+}
+.pxb-noimg {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+.pxb-noimg svg {
+  width: 30px;
+  height: 30px;
+}
+
+/* "Эталон" badge, top-left */
+.pxb-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+.pxb-eta {
+  font-size: 11px;
+  height: 20px;
+}
+
+/* relative-age pill, top-right (mono, computed from updatedAt) */
+.pxb-age {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 10.5px;
+  font-family: var(--mono);
+  color: var(--text-2);
+  background: rgba(11, 11, 13, 0.7);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+.pxb-age-stale {
+  color: var(--changed);
+  border-color: rgba(224, 165, 62, 0.4);
+}
+
+/* meta block */
+.pxb-meta {
+  padding: 11px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pxb-nm {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pxb-det {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pxb-branch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.pxb-chip {
+  max-width: 100%;
+  overflow: hidden;
+}
+.pxb-chip svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  color: var(--text-3);
+}
+.pxb-staletag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--changed);
+  background: var(--changed-bg);
+  border: 1px solid rgba(224, 165, 62, 0.3);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+
+/* approver row */
+.pxb-by {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  margin-top: auto;
+  border-top: 1px solid var(--border-faint);
+}
+.pxb-by-ico {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  color: var(--text-3);
+}
+.pxb-who {
+  font-size: 11.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* loading skeletons */
+.pxb-sk-num {
+  width: 56px;
+  height: 25px;
+  border-radius: 6px;
+}
+.pxb-sk-img {
+  height: 150px;
+  border-radius: 0;
+}
+.pxb-sk-name {
+  width: 70%;
+  height: 13px;
+  margin: 11px 13px 0;
+}
+.pxb-sk-det {
+  width: 50%;
+  height: 11px;
+  margin: 6px 13px 11px;
+}
+.pxb-sk-who {
+  width: 60%;
+  height: 11px;
+  margin: 9px 13px;
+}

@@ -103,7 +103,13 @@
 
           <px-count-chips [counts]="build.counts" />
 
-          <div class="when">{{ relTime(build.createdAt) }}</div>
+          <div class="when">
+            <span class="rel">{{ relTime(build.createdAt) }}</span>
+            @let dur = duration(build);
+            @if (dur) {
+              <span class="dur">{{ dur }}</span>
+            }
+          </div>
         </a>
       }
 

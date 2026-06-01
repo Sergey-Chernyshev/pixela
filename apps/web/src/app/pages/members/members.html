@@ -1,0 +1,121 @@
+<px-app-shell
+  mode="project"
+  active="members"
+  title="Участники"
+  subtitle="Доступ к проекту"
+  [projectName]="projectName()"
+  [projectId]="projectId()"
+>
+  <div class="body">
+    @if (error()) {
+      <div class="empty-state pxm-center">
+        <div class="ei">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 9v4M12 17h.01" />
+            <path
+              d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"
+            />
+          </svg>
+        </div>
+        <h3>Не удалось загрузить</h3>
+        <p>Список участников проекта сейчас недоступен.</p>
+      </div>
+    } @else {
+      <div class="secrow">
+        <h2>
+          Команда
+          @if (!loading() && !isEmpty()) {
+            <span class="pxm-count mono">{{ count() }}</span>
+          }
+        </h2>
+      </div>
+
+      @if (loading()) {
+        <table class="tbl pxm-tbl">
+          <thead>
+            <tr>
+              <th>Участник</th>
+              <th>Роль</th>
+              <th class="num">Проверок</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (s of skeletonRows; track s) {
+              <tr>
+                <td>
+                  <div class="pxm-mcell">
+                    <span class="sk pxm-sk-ava"></span>
+                    <div class="pxm-sk-text">
+                      <div class="sk pxm-sk-name"></div>
+                      <div class="sk pxm-sk-email"></div>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="sk pxm-sk-role"></span></td>
+                <td class="num"><span class="sk pxm-sk-num"></span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else if (isEmpty()) {
+        <div class="empty-state pxm-center">
+          <div class="ei">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+          </div>
+          <h3>Пока нет участников</h3>
+          <p>У этого проекта ещё нет участников с доступом.</p>
+        </div>
+      } @else {
+        <table class="tbl pxm-tbl">
+          <thead>
+            <tr>
+              <th>Участник</th>
+              <th>Роль</th>
+              <th class="num">Проверок</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of members(); track m.id) {
+              <tr>
+                <td>
+                  <div class="pxm-mcell">
+                    <span class="avatar avatar--md pxm-ava">{{ initials(m) }}</span>
+                    <div class="pxm-text">
+                      <div class="pxm-nm">{{ displayName(m) }}</div>
+                      <div class="pxm-em mono">{{ m.email }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span [class]="roleClass(m.role)">
+                    @if (isOwner(m.role)) {
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2 4 6v6c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6z" />
+                      </svg>
+                    } @else {
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="m8 9-4 3 4 3M16 9l4 3-4 3M13 6l-2 12" />
+                      </svg>
+                    }
+                    {{ roleLabel(m.role) }}
+                  </span>
+                </td>
+                <td class="num">
+                  @if (m.totalReviews > 0) {
+                    <b class="mono">{{ m.totalReviews }}</b>
+                  } @else {
+                    <span class="pxm-zero mono">0</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+  </div>
+</px-app-shell>
