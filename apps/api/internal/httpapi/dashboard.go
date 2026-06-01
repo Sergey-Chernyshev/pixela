@@ -240,6 +240,44 @@ func registerDashboard(api huma.API, svc *dashboard.Service, log *slog.Logger, c
 		out.Body.Activity = activity
 		return out, nil
 	})
+
+	// ---- review actions (Phase 5): approve/reject a snapshot or a whole build ----
+	reviewSnapshot := func(opID, path, summary string, fn func(ctx context.Context, userID, id string) (dashboard.ReviewResult, error)) {
+		huma.Register(api, huma.Operation{
+			OperationID: opID, Method: http.MethodPost, Path: path,
+			Summary: summary, Tags: []string{"dashboard"}, Security: sessionSecurity,
+		}, func(ctx context.Context, in *getSnapshotInput) (*reviewOutput, error) {
+			p, err := requireUser(ctx)
+			if err != nil {
+				return nil, err
+			}
+			res, err := fn(ctx, p.UserID, in.SnapshotID)
+			if err != nil {
+				return nil, mapError(log, err)
+			}
+			return &reviewOutput{Body: res}, nil
+		})
+	}
+	reviewBuild := func(opID, path, summary string, fn func(ctx context.Context, userID, id string) (dashboard.ReviewResult, error)) {
+		huma.Register(api, huma.Operation{
+			OperationID: opID, Method: http.MethodPost, Path: path,
+			Summary: summary, Tags: []string{"dashboard"}, Security: sessionSecurity,
+		}, func(ctx context.Context, in *getBuildInput) (*reviewOutput, error) {
+			p, err := requireUser(ctx)
+			if err != nil {
+				return nil, err
+			}
+			res, err := fn(ctx, p.UserID, in.BuildID)
+			if err != nil {
+				return nil, mapError(log, err)
+			}
+			return &reviewOutput{Body: res}, nil
+		})
+	}
+	reviewSnapshot("approveSnapshot", "/v1/snapshots/{snapshotId}/approve", "Approve a snapshot (promote its image to the baseline)", svc.ApproveSnapshot)
+	reviewSnapshot("rejectSnapshot", "/v1/snapshots/{snapshotId}/reject", "Reject a snapshot change", svc.RejectSnapshot)
+	reviewBuild("approveBuild", "/v1/builds/{buildId}/approve", "Approve every reviewable snapshot in a build", svc.ApproveBuild)
+	reviewBuild("rejectBuild", "/v1/builds/{buildId}/reject", "Reject every reviewable snapshot in a build", svc.RejectBuild)
 }
 
 // requireUser returns the authenticated dashboard user or a 401 (the middleware guarantees it on
@@ -359,4 +397,8 @@ type listActivityOutput struct {
 	Body struct {
 		Activity []dashboard.ActivityEntry `json:"activity"`
 	}
+}
+
+type reviewOutput struct {
+	Body dashboard.ReviewResult
 }

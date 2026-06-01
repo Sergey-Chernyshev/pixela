@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { catchError, map, of, startWith, switchMap } from 'rxjs';
+import { catchError, firstValueFrom, map, of, startWith, switchMap } from 'rxjs';
 import type { BuildDetail as BuildDetailDto, SnapshotBrief } from '@pixela/shared';
 import { ApiService } from '../../core/api';
 import { AppShell } from '../../layout/app-shell';
@@ -22,9 +22,9 @@ interface LoadState {
  * a "только изменённые" toggle (default ON) filtering to CHANGED/NEW/REMOVED; and a grid of status-forward
  * snapshot cards, each linking to its review.
  *
- * Design gap: SnapshotBrief has NO image URL, so the mock's screenshot thumbnails cannot be rendered —
- * the cards are status ribbon + name + browser·viewport + diff% instead. Batch approve/reject and the
- * author/duration/CI-link header meta from the mock have no backing API and are omitted (see apiGaps).
+ * Cards render real presigned thumbnails (new/diff/baseline) from the API. Batch approve/reject (Phase 5)
+ * acts on every reviewable snapshot and refetches the build. The mock's author/duration/CI-link header
+ * meta have no backing API field and are omitted.
  */
 @Component({
   selector: 'px-build-detail',
@@ -38,10 +38,14 @@ export class BuildDetail {
 
   readonly buildId = input.required<string>();
 
+  /** Bumped after a batch approve/reject to refetch the build (statuses + counts change). */
+  private readonly reload = signal(0);
+  private readonly trigger = computed(() => ({ id: this.buildId(), nonce: this.reload() }));
+
   /** Build load: loading/error/data trio, default data = null until resolved (loading-state modelling). */
   private readonly state = toSignal(
-    toObservable(this.buildId).pipe(
-      switchMap((id) =>
+    toObservable(this.trigger).pipe(
+      switchMap(({ id }) =>
         this.api.build(id).pipe(
           map((data): LoadState => ({ loading: false, error: false, data })),
           startWith({ loading: true, error: false, data: null } as LoadState),
@@ -99,6 +103,53 @@ export class BuildDetail {
   });
 
   protected readonly isEmpty = computed(() => this.visible().length === 0);
+
+  /** Snapshots a reviewer can act on (drives the batch approve/reject buttons). */
+  protected readonly reviewableCount = computed(
+    () => this.snapshots().filter((s) => DIFF_STATUSES.has(s.status) || s.status === 'ERROR').length,
+  );
+
+  // ---- batch review ----
+  protected readonly submitting = signal(false);
+  protected readonly note = signal<string | null>(null);
+  private noteTimer: ReturnType<typeof setTimeout> | null = null;
+
+  protected approveAll(): void {
+    void this.reviewAll('approve');
+  }
+  protected rejectAll(): void {
+    void this.reviewAll('reject');
+  }
+
+  /** Pessimistic batch action: call the API, then refetch the build so statuses/counts update. */
+  private async reviewAll(action: 'approve' | 'reject'): Promise<void> {
+    if (this.submitting() || this.reviewableCount() === 0) return;
+    this.submitting.set(true);
+    this.note.set(null);
+    try {
+      const call =
+        action === 'approve'
+          ? this.api.approveBuild(this.buildId())
+          : this.api.rejectBuild(this.buildId());
+      const res = await firstValueFrom(call);
+      this.flash(
+        action === 'approve'
+          ? `Принято снимков: ${res.affected}`
+          : `Отклонено снимков: ${res.affected}`,
+      );
+      this.reload.update((v) => v + 1); // refetch the build
+    } catch {
+      this.flash('Не удалось применить действие');
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+
+  private flash(msg: string): void {
+    this.note.set(msg);
+    if (this.noteTimer) clearTimeout(this.noteTimer);
+    this.noteTimer = setTimeout(() => this.note.set(null), 2600);
+  }
 
   protected toggleOnlyChanged(): void {
     this.onlyChanged.update((v) => !v);

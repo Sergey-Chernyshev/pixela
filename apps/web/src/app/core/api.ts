@@ -9,6 +9,7 @@ import type {
   LoginResponse,
   MemberList,
   ProjectList,
+  ReviewResult,
   SnapshotReview,
   User,
 } from '@pixela/shared';
@@ -91,5 +92,22 @@ export class ApiService {
 
   activity(): Observable<ActivityList> {
     return this.http.get<ActivityList>(this.url('/activity'));
+  }
+
+  // ---- review actions (Phase 5) ----
+  approveSnapshot(snapshotId: string): Observable<ReviewResult> {
+    return this.http.post<ReviewResult>(this.url(`/snapshots/${encodeURIComponent(snapshotId)}/approve`), {});
+  }
+
+  rejectSnapshot(snapshotId: string): Observable<ReviewResult> {
+    return this.http.post<ReviewResult>(this.url(`/snapshots/${encodeURIComponent(snapshotId)}/reject`), {});
+  }
+
+  approveBuild(buildId: string): Observable<ReviewResult> {
+    return this.http.post<ReviewResult>(this.url(`/builds/${encodeURIComponent(buildId)}/approve`), {});
+  }
+
+  rejectBuild(buildId: string): Observable<ReviewResult> {
+    return this.http.post<ReviewResult>(this.url(`/builds/${encodeURIComponent(buildId)}/reject`), {});
   }
 }

@@ -596,3 +596,9 @@ input[type='range']::-webkit-slider-thumb {
     transition: none;
   }
 }
+
+.resolved-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+}

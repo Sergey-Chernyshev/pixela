@@ -47,6 +47,8 @@ func mapError(log *slog.Logger, err error) *apiError {
 		return newAPIError(http.StatusNotFound, core.CodeNotFound, "Resource not found")
 	case errors.Is(err, core.ErrBuildFinalized):
 		return newAPIError(http.StatusConflict, core.CodeBuildFinalized, "Build is already finalized")
+	case errors.Is(err, core.ErrConflict):
+		return newAPIError(http.StatusConflict, core.CodeConflict, "Snapshot is not in a reviewable state")
 	case errors.Is(err, core.ErrHashMismatch):
 		return newAPIError(http.StatusBadRequest, core.CodeHashMismatch, "Uploaded bytes do not match the declared sha256")
 	case errors.Is(err, core.ErrImageTooLarge):

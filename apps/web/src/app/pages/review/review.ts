@@ -63,9 +63,17 @@ export class Review {
   protected readonly onion = signal(0.5);
   protected readonly curtain = signal(0.5);
 
-  /** Transient note for not-yet-wired actions (approve/reject land in Phase 5). */
+  /** Transient confirmation/error note shown after a review action. */
   protected readonly note = signal<string | null>(null);
   private noteTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** In-flight review action (disables the controls; pessimistic — no optimistic status flip). */
+  protected readonly submitting = signal(false);
+  /** Whether the snapshot is still actionable (resolved snapshots disable approve/reject). */
+  protected readonly reviewable = computed(() => {
+    const s = this.data()?.status;
+    return s === 'CHANGED' || s === 'NEW' || s === 'REMOVED';
+  });
 
   private readonly stage = viewChild<ElementRef<HTMLElement>>('stage');
   private readonly curtainStack = viewChild<ElementRef<HTMLElement>>('curtainStack');
@@ -216,13 +224,53 @@ export class Review {
     this.curtain.set(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)));
   }
 
-  // ---- actions (Phase 5 stubs) ----
+  // ---- review actions ----
   protected approve(): void {
-    this.flash('Скоро: approve в Фазе 5');
+    void this.act('approve');
   }
   protected reject(): void {
-    this.flash('Скоро: reject в Фазе 5');
+    void this.act('reject');
   }
+
+  /** Pessimistic approve/reject: call the API, and only on success reflect the new snapshot status. */
+  private async act(action: 'approve' | 'reject'): Promise<void> {
+    if (this.submitting() || !this.reviewable()) return;
+    this.submitting.set(true);
+    this.note.set(null);
+    try {
+      const call =
+        action === 'approve'
+          ? this.api.approveSnapshot(this.snapshotId())
+          : this.api.rejectSnapshot(this.snapshotId());
+      const res = await firstValueFrom(call);
+      const current = this.data();
+      if (current) {
+        this.data.set({ ...current, status: action === 'approve' ? 'APPROVED' : 'REJECTED' });
+      }
+      this.flash(
+        action === 'approve'
+          ? `Принято — эталон обновлён · сборка ${this.buildStatusRu(res.buildStatus)}`
+          : `Отклонено · сборка ${this.buildStatusRu(res.buildStatus)}`,
+      );
+    } catch {
+      this.flash(action === 'approve' ? 'Не удалось принять снимок' : 'Не удалось отклонить снимок');
+    } finally {
+      this.submitting.set(false);
+    }
+  }
+
+  private buildStatusRu(s: string): string {
+    const map: Record<string, string> = {
+      PASSED: 'пройдена',
+      REVIEW_REQUIRED: 'на проверке',
+      REJECTED: 'отклонена',
+      COMPARING: 'сравнение',
+      RUNNING: 'выполняется',
+      ERROR: 'ошибка',
+    };
+    return map[s] ?? s;
+  }
+
   protected back(): void {
     this.location.back();
   }

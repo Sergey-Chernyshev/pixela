@@ -33,6 +33,7 @@ export type BaselineView = Schemas['BaselineView'];
 export type BaselineList = Schemas['ListBaselinesOutputBody'];
 export type ActivityEntry = Schemas['ActivityEntry'];
 export type ActivityList = Schemas['ListActivityOutputBody'];
+export type ReviewResult = Schemas['ReviewResult'];
 
 // ---- Ingestion (Phase 1) ----
 export type CreateBuildRequest = Schemas['CreateBuildInputBody'];

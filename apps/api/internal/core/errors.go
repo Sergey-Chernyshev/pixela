@@ -34,5 +34,6 @@ const (
 	CodeImageTooLarge    ErrorCode = "IMAGE_TOO_LARGE"
 	CodeBuildFinalized   ErrorCode = "BUILD_ALREADY_FINALIZED"
 	CodeInvalidCreds     ErrorCode = "INVALID_CREDENTIALS" //nolint:gosec // error code identifier, not a credential
+	CodeConflict         ErrorCode = "CONFLICT"
 	CodeInternal         ErrorCode = "INTERNAL"
 )

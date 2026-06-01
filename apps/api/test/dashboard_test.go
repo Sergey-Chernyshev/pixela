@@ -290,6 +290,35 @@ func TestPhase4Dashboard(t *testing.T) {
 		t.Fatalf("bob activity: got %d with %s, want 200 empty", code, body)
 	}
 
+	// (12c) Review actions (Phase 5): approve promotes the new image to the baseline and recomputes the
+	// build; a resolved snapshot can't be re-approved; a non-member can't approve.
+	code, body = postJSON(t, alice, base+"/snapshots/"+changedSnap+"/approve", nil)
+	if code != http.StatusOK {
+		t.Fatalf("approve snapshot: got %d (%s), want 200", code, body)
+	}
+	if r := obj(t, body); !numEq(r["affected"], 1) || r["buildId"] != buildID {
+		t.Fatalf("approve result = %v, want affected 1 / build %s", r, buildID)
+	}
+	if _, b := getJSON(t, alice, base+"/snapshots/"+changedSnap); obj(t, b)["status"] != "APPROVED" {
+		t.Fatalf("snapshot after approve = %v, want APPROVED", obj(t, b)["status"])
+	}
+	// A resolved snapshot is not reviewable → 409 CONFLICT.
+	if code, body := postJSON(t, alice, base+"/snapshots/"+changedSnap+"/approve", nil); code != http.StatusConflict || errCode(t, body) != "CONFLICT" {
+		t.Fatalf("re-approve: got %d (%s), want 409 CONFLICT", code, body)
+	}
+	// A non-member cannot approve another project's snapshot.
+	if code, _ := postJSON(t, bob, base+"/snapshots/"+newSnap+"/approve", nil); code != http.StatusForbidden {
+		t.Fatalf("bob approve: got %d, want 403", code)
+	}
+	// Batch-approve the rest (the NEW + REMOVED snapshots) → no reviewable left → build PASSED.
+	code, body = postJSON(t, alice, base+"/builds/"+buildID+"/approve", nil)
+	if code != http.StatusOK {
+		t.Fatalf("approve build: got %d (%s)", code, body)
+	}
+	if r := obj(t, body); r["buildStatus"] != "PASSED" {
+		t.Fatalf("build after batch approve = %v, want PASSED (%s)", r["buildStatus"], body)
+	}
+
 	// (13) Logout revokes the session: the same cookie no longer authenticates.
 	if code, body := postJSON(t, alice, base+"/auth/logout", nil); code != http.StatusOK {
 		t.Fatalf("logout: got %d (%s), want 200", code, body)

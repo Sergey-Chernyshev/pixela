@@ -571,6 +571,28 @@ components:
         - healthOk
         - healthTotal
       type: object
+    ReviewResult:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/ReviewResult.json
+          format: uri
+          readOnly: true
+          type: string
+        affected:
+          format: int64
+          type: integer
+        buildId:
+          type: string
+        buildStatus:
+          type: string
+      required:
+        - buildId
+        - buildStatus
+        - affected
+      type: object
     SnapshotBrief:
       additionalProperties: false
       properties:
@@ -858,6 +880,60 @@ paths:
       summary: Finalize a build (compute REMOVED, enqueue diff)
       tags:
         - ingestion
+  /v1/builds/{buildId}/approve:
+    post:
+      operationId: approveBuild
+      parameters:
+        - in: path
+          name: buildId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResult"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Approve every reviewable snapshot in a build
+      tags:
+        - dashboard
+  /v1/builds/{buildId}/reject:
+    post:
+      operationId: rejectBuild
+      parameters:
+        - in: path
+          name: buildId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResult"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Reject every reviewable snapshot in a build
+      tags:
+        - dashboard
   /v1/builds/{buildId}/snapshots:
     post:
       operationId: declareSnapshot
@@ -1073,6 +1149,60 @@ paths:
       security:
         - SessionCookie: []
       summary: Snapshot review payload (presigned images + history)
+      tags:
+        - dashboard
+  /v1/snapshots/{snapshotId}/approve:
+    post:
+      operationId: approveSnapshot
+      parameters:
+        - in: path
+          name: snapshotId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResult"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Approve a snapshot (promote its image to the baseline)
+      tags:
+        - dashboard
+  /v1/snapshots/{snapshotId}/reject:
+    post:
+      operationId: rejectSnapshot
+      parameters:
+        - in: path
+          name: snapshotId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewResult"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Reject a snapshot change
       tags:
         - dashboard
 servers:
