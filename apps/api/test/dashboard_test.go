@@ -151,6 +151,15 @@ func TestPhase4Dashboard(t *testing.T) {
 		t.Fatalf("counts = %v, want changed1/new1/unchanged1/removed1", counts)
 	}
 
+	// (7b) An out-of-range page is clamped to [1, totalPages] — never a 500, and Page <= TotalPages.
+	code, body = getJSON(t, alice, base+"/projects/"+projA.ID+"/builds?page=999")
+	if code != http.StatusOK {
+		t.Fatalf("out-of-range page: got %d (%s), want 200 (clamped, not 500)", code, body)
+	}
+	if oob := obj(t, body); !numEq(oob["page"], 1) || !numEq(oob["totalPages"], 1) {
+		t.Fatalf("out-of-range page: page=%v totalPages=%v, want page<=totalPages (1/1)", oob["page"], oob["totalPages"])
+	}
+
 	// (8) Build detail lists all snapshots.
 	code, body = getJSON(t, alice, base+"/builds/"+buildID)
 	if code != http.StatusOK {

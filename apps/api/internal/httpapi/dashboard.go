@@ -265,7 +265,7 @@ type listBuildsInput struct {
 	ProjectID string `path:"projectId"`
 	Branch    string `query:"branch" doc:"Filter by branch (optional)"`
 	Status    string `query:"status" doc:"Filter by build status (optional)"`
-	Page      int    `query:"page" minimum:"1" default:"1"`
+	Page      int    `query:"page" minimum:"1" maximum:"1000000" default:"1"`
 }
 
 type listBuildsOutput struct {

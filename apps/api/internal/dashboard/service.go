@@ -29,11 +29,22 @@ type Service struct {
 	store      *storage.Store
 	log        *slog.Logger
 	presignTTL time.Duration
+	// decoyHash is a valid argon2id hash computed once at startup. Login verifies against it on the
+	// unknown-email / null-password paths so every failure pays the same KDF cost — closing the timing
+	// side-channel that would otherwise let an attacker enumerate accounts despite the generic error.
+	decoyHash string
 }
 
-// NewService wires the dashboard service.
-func NewService(database *db.DB, sessions *session.Store, store *storage.Store, presignTTL time.Duration, log *slog.Logger) *Service {
-	return &Service{db: database, sessions: sessions, store: store, presignTTL: presignTTL, log: log}
+// NewService wires the dashboard service. It precomputes the login decoy hash; a crypto/rand failure
+// here aborts startup (the alternative — skipping it — would silently reopen the enumeration oracle).
+func NewService(database *db.DB, sessions *session.Store, store *storage.Store, presignTTL time.Duration, log *slog.Logger) (*Service, error) {
+	decoy, err := auth.HashPassword(core.NewID())
+	if err != nil {
+		return nil, fmt.Errorf("init login decoy hash: %w", err)
+	}
+	return &Service{
+		db: database, sessions: sessions, store: store, presignTTL: presignTTL, log: log, decoyHash: decoy,
+	}, nil
 }
 
 // ---- auth ----
@@ -50,13 +61,15 @@ type User struct {
 func (s *Service) Login(ctx context.Context, email, password string) (auth.UserPrincipal, string, error) {
 	user, err := s.db.Queries().GetUserByEmail(ctx, email)
 	if errors.Is(err, pgx.ErrNoRows) {
+		s.equalizeLoginTiming(password) // unknown email: still pay the KDF cost (anti-enumeration)
 		return auth.UserPrincipal{}, "", core.ErrInvalidCredentials
 	}
 	if err != nil {
 		return auth.UserPrincipal{}, "", fmt.Errorf("get user: %w", err)
 	}
 	if user.PasswordHash == nil {
-		return auth.UserPrincipal{}, "", core.ErrInvalidCredentials // OAuth-only account, no password
+		s.equalizeLoginTiming(password) // OAuth-only account, no password: pay the same cost
+		return auth.UserPrincipal{}, "", core.ErrInvalidCredentials
 	}
 	ok, verr := auth.VerifyPassword(*user.PasswordHash, password)
 	if verr != nil {
@@ -70,6 +83,13 @@ func (s *Service) Login(ctx context.Context, email, password string) (auth.UserP
 		return auth.UserPrincipal{}, "", fmt.Errorf("create session: %w", err)
 	}
 	return auth.UserPrincipal{UserID: user.ID, Email: user.Email}, sid, nil
+}
+
+// equalizeLoginTiming runs the argon2 KDF against the decoy hash and discards the result, so a failed
+// login on the no-such-user / no-password path takes the same time as a wrong-password verification.
+// Without this, response latency leaks whether an email is a registered, password-backed account.
+func (s *Service) equalizeLoginTiming(password string) {
+	_, _ = auth.VerifyPassword(s.decoyHash, password)
 }
 
 // Logout destroys the session id (idempotent).
@@ -155,22 +175,34 @@ func (s *Service) ListBuilds(ctx context.Context, userID, projectID, branch, sta
 	if !member {
 		return BuildsPage{}, fmt.Errorf("project %s: %w", projectID, core.ErrForbiddenProject)
 	}
-	if page < 1 {
-		page = 1
-	}
 
-	rows, err := s.db.Queries().ListBuildsForProjectMember(ctx, db.ListBuildsForProjectMemberParams{
-		ProjectID: projectID, UserID: userID, Branch: branch, Status: status,
-		PageLimit: buildsPageSize, PageOffset: int32((page - 1) * buildsPageSize), //nolint:gosec // bounded page index
-	})
-	if err != nil {
-		return BuildsPage{}, fmt.Errorf("list builds: %w", err)
-	}
+	// Count first so we can clamp the requested page to [1, totalPages] BEFORE computing the offset.
+	// This keeps the response consistent (Page <= TotalPages) and guarantees the offset is bounded by
+	// the row count — never a negative/overflowed OFFSET that Postgres would reject (a 500).
 	total, err := s.db.Queries().CountBuildsForProjectMember(ctx, db.CountBuildsForProjectMemberParams{
 		ProjectID: projectID, UserID: userID, Branch: branch, Status: status,
 	})
 	if err != nil {
 		return BuildsPage{}, fmt.Errorf("count builds: %w", err)
+	}
+	totalPages := int((total + buildsPageSize - 1) / buildsPageSize)
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	rows, err := s.db.Queries().ListBuildsForProjectMember(ctx, db.ListBuildsForProjectMemberParams{
+		ProjectID: projectID, UserID: userID, Branch: branch, Status: status,
+		//nolint:gosec // page is clamped to [1, totalPages] above, so the offset is bounded by `total`
+		PageLimit: buildsPageSize, PageOffset: int32((page - 1) * buildsPageSize),
+	})
+	if err != nil {
+		return BuildsPage{}, fmt.Errorf("list builds: %w", err)
 	}
 
 	items := make([]BuildListItem, 0, len(rows))
@@ -180,10 +212,6 @@ func (s *Service) ListBuilds(ctx context.Context, userID, projectID, branch, sta
 			Counts:    Counts{Unchanged: int(r.Unchanged), Changed: int(r.Changed), New: int(r.New), Removed: int(r.Removed)},
 			CreatedAt: r.CreatedAt.Time, CIJobURL: r.CiJobUrl,
 		})
-	}
-	totalPages := int((total + buildsPageSize - 1) / buildsPageSize)
-	if totalPages == 0 {
-		totalPages = 1
 	}
 	return BuildsPage{Items: items, Page: page, TotalPages: totalPages}, nil
 }
