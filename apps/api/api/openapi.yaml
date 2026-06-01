@@ -1,8 +1,294 @@
 components:
-  schemas: {}
+  schemas:
+    ApiError:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/ApiError.json
+          format: uri
+          readOnly: true
+          type: string
+        error:
+          $ref: "#/components/schemas/ApiErrorBody"
+      required:
+        - error
+      type: object
+    ApiErrorBody:
+      additionalProperties: false
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required:
+        - code
+        - message
+      type: object
+    CreateBuildInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/CreateBuildInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        branch:
+          description: Git branch under test
+          minLength: 1
+          type: string
+        ciBuildId:
+          type: string
+        ciJobUrl:
+          type: string
+        commitSha:
+          minLength: 1
+          type: string
+        mrIid:
+          type: string
+        parallelTotal:
+          description: Reserved for shard aggregation (Phase 3)
+          format: int64
+          type: integer
+      required:
+        - branch
+        - commitSha
+      type: object
+    CreateBuildOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/CreateBuildOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        buildId:
+          type: string
+        status:
+          type: string
+      required:
+        - buildId
+        - status
+      type: object
+    DeclareSnapshotInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/DeclareSnapshotInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        browser:
+          minLength: 1
+          type: string
+        byteSize:
+          format: int32
+          minimum: 1
+          type: integer
+        height:
+          format: int32
+          minimum: 1
+          type: integer
+        imageSha256:
+          description: sha256 of the PNG bytes, lowercase hex
+          pattern: ^[a-f0-9]{64}$
+          type: string
+        name:
+          minLength: 1
+          type: string
+        viewport:
+          minLength: 1
+          type: string
+        width:
+          format: int32
+          minimum: 1
+          type: integer
+      required:
+        - name
+        - browser
+        - viewport
+        - imageSha256
+        - width
+        - height
+        - byteSize
+      type: object
+    DeclareSnapshotOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/DeclareSnapshotOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        needUpload:
+          type: boolean
+        snapshotId:
+          type: string
+      required:
+        - snapshotId
+        - needUpload
+      type: object
+    FinalizeBuildInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/FinalizeBuildInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        status:
+          enum:
+            - FINALIZE
+          type: string
+      required:
+        - status
+      type: object
+  securitySchemes:
+    ApiKeyAuth:
+      description: "Ingestion credential. Send `Authorization: ApiKey <key>`."
+      in: header
+      name: Authorization
+      type: apiKey
 info:
   title: Pixela API
   version: 0.1.0
 openapi: 3.1.0
+paths:
+  /v1/builds:
+    post:
+      operationId: createBuild
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBuildInputBody"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateBuildOutputBody"
+          description: Created
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - ApiKeyAuth: []
+      summary: Create a build
+      tags:
+        - ingestion
+  /v1/builds/{buildId}:
+    patch:
+      operationId: finalizeBuild
+      parameters:
+        - in: path
+          name: buildId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinalizeBuildInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateBuildOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - ApiKeyAuth: []
+      summary: Finalize a build (compute REMOVED, enqueue diff)
+      tags:
+        - ingestion
+  /v1/builds/{buildId}/snapshots:
+    post:
+      operationId: declareSnapshot
+      parameters:
+        - in: path
+          name: buildId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeclareSnapshotInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeclareSnapshotOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - ApiKeyAuth: []
+      summary: Declare a screenshot by hash (step 1 of 2)
+      tags:
+        - ingestion
+  /v1/images/{sha256}:
+    put:
+      operationId: uploadImage
+      parameters:
+        - in: path
+          name: sha256
+          required: true
+          schema:
+            pattern: ^[a-f0-9]{64}$
+            type: string
+      requestBody:
+        content:
+          image/png:
+            schema:
+              contentMediaType: application/octet-stream
+              format: binary
+              type: string
+        required: true
+      responses:
+        "204":
+          description: No Content
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - ApiKeyAuth: []
+      summary: Upload screenshot bytes (step 2 of 2)
+      tags:
+        - ingestion
 servers:
   - url: /api

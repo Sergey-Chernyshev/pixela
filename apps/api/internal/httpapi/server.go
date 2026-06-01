@@ -14,6 +14,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/core"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/ingestion"
 )
 
 // Deps are the explicit dependencies of the HTTP server (constructor injection, no globals).
@@ -22,6 +23,11 @@ type Deps struct {
 	Checkers   []core.HealthChecker // probed by GET /readyz
 	CORSOrigin string               // allowed dashboard origin
 	Ready      *atomic.Bool         // flipped true once migrations + connections are up
+
+	// Ingestion endpoints (nil when only emitting the OpenAPI spec). KeyResolver authenticates the
+	// ingestion API key; both are wired by app in serve mode.
+	Ingestion   *ingestion.Service
+	KeyResolver APIKeyResolver
 }
 
 // Server wires the router and the Huma API. Build it with NewServer and serve Handler().
@@ -49,10 +55,32 @@ func NewServer(deps Deps) *Server {
 		r.Use(cors(deps.CORSOrigin))
 	}
 
-	// Huma API under /api — the OpenAPI 3.1 source of truth. Operations are registered from Phase 1.
+	// Route Huma's built-in errors through the contract's { error: { code, message } } envelope.
+	installErrorEnvelope()
+
+	// Huma API under /api — the OpenAPI 3.1 source of truth.
 	cfg := huma.DefaultConfig("Pixela API", "0.1.0")
 	cfg.Servers = []*huma.Server{{URL: "/api"}}
-	api := humachi.New(r, cfg)
+	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		apiKeySchemeName: {
+			Type:        "apiKey",
+			In:          "header",
+			Name:        "Authorization",
+			Description: "Ingestion credential. Send `Authorization: ApiKey <key>`.",
+		},
+	}
+	// Mount the Huma API under /api so operation paths (/v1/...) resolve to /api/v1/... — the server
+	// URL above is documentation only and does not affect routing.
+	apiMux := chi.NewMux()
+	api := humachi.New(apiMux, cfg)
+
+	// Enforce the API key on operations that declare it (the guard is a no-op for emit-only servers
+	// where KeyResolver is nil, since no requests are served).
+	if deps.KeyResolver != nil {
+		api.UseMiddleware(apiKeyMiddleware(api, deps.KeyResolver))
+	}
+	registerIngestion(api, deps.Ingestion, deps.Logger)
+	r.Mount("/api", apiMux)
 
 	s := &Server{router: r, api: api, deps: deps}
 	s.addRoutes()

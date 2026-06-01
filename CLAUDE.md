@@ -54,7 +54,11 @@
 ## Current State (обновляй это!)
 
 - [x] **Фаза 0: каркас + миграции + smoke** ✅ (детали ниже)
-- [ ] Фаза 1: ingestion + storage
+- [x] **Фаза 1: ingestion + storage** ✅ — auth по API-ключу (HMAC, изоляция проектов), CAS-storage
+  (minio: exists/put/presign/get), двухшаговая заливка с дедупом, идемпотентный upsert, валидация PNG
+  (size/magic/sha→`SNAPSHOT_HASH_MISMATCH`), finalize (REMOVED + `FOR UPDATE` + транзакционный enqueue diff
+  через River `InsertTx`). 4 Huma-операции `/api/v1/*`, error-envelope, admin-CLI `project/apikey`.
+  Integration-тест 11/11 (401/403/dedup/idempotent/hash-mismatch/BUILD_NOT_FOUND/finalize+REMOVED+enqueue/409).
 - [ ] Фаза 2: diff pipeline
 - [ ] Фаза 3: Playwright reporter
 - [ ] Фаза 4: дашборд + review UI

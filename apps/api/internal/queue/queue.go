@@ -73,6 +73,7 @@ func NewServeClient(pool *pgxpool.Pool, log *slog.Logger) (*Queue, error) {
 func NewWorkerClient(pool *pgxpool.Pool, log *slog.Logger) (*Queue, error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, &healthCheckWorker{log: log})
+	river.AddWorker(workers, &diffWorker{log: log})
 
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger: log,

@@ -11,12 +11,14 @@ import (
 
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/config"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/httpapi"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/ingestion"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/queue"
 )
 
 const shutdownTimeout = 30 * time.Second
 
-// runServe runs the HTTP API. The diff queue's insert-only client is wired here in Phase 1 (when
-// ingestion enqueues jobs); Phase 0 serves health + the (empty) OpenAPI surface.
+// runServe runs the HTTP API: health + the ingestion endpoints. The diff queue's insert-only client
+// lets ingestion enqueue diff jobs transactionally on finalize.
 func runServe(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	d, err := wire(ctx, cfg, log)
 	if err != nil {
@@ -24,14 +26,22 @@ func runServe(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 	defer d.close()
 
+	q, err := queue.NewServeClient(d.db.Pool(), log)
+	if err != nil {
+		return fmt.Errorf("queue serve client: %w", err)
+	}
+	ingestSvc := ingestion.NewService(d.db, d.store, q, cfg.ImageMaxBytes, log)
+
 	var ready atomic.Bool
 	ready.Store(true) // adapters pinged in wire(); readiness reflects live checks from here on
 
 	srv := httpapi.NewServer(httpapi.Deps{
-		Logger:     log,
-		Checkers:   d.checkers(),
-		CORSOrigin: cfg.CORSOrigin,
-		Ready:      &ready,
+		Logger:      log,
+		Checkers:    d.checkers(),
+		CORSOrigin:  cfg.CORSOrigin,
+		Ready:       &ready,
+		Ingestion:   ingestSvc,
+		KeyResolver: newKeyResolver(d.db, cfg.SessionSecret.Reveal(), log),
 	})
 
 	httpServer := &http.Server{

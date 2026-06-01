@@ -7,6 +7,7 @@ import "errors"
 // { "error": { "code", "message" } } envelope via ErrorCode below.
 var (
 	ErrNotFound         = errors.New("not found")
+	ErrBuildNotFound    = errors.New("build not found")
 	ErrUnauthorized     = errors.New("unauthorized")
 	ErrForbiddenProject = errors.New("forbidden: project not accessible")
 	ErrValidation       = errors.New("validation failed")
@@ -25,6 +26,7 @@ const (
 	CodeUnauthorized     ErrorCode = "UNAUTHORIZED"
 	CodeForbiddenProject ErrorCode = "FORBIDDEN_PROJECT"
 	CodeNotFound         ErrorCode = "NOT_FOUND"
+	CodeBuildNotFound    ErrorCode = "BUILD_NOT_FOUND"
 	CodeHashMismatch     ErrorCode = "SNAPSHOT_HASH_MISMATCH"
 	CodeImageTooLarge    ErrorCode = "IMAGE_TOO_LARGE"
 	CodeBuildFinalized   ErrorCode = "BUILD_ALREADY_FINALIZED"

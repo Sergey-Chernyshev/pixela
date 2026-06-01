@@ -26,8 +26,10 @@ func Run(ctx context.Context, args []string) error {
 	}
 
 	// Reject unknown subcommands before touching the environment (clear error without requiring config).
-	if cmd != "serve" && cmd != "worker" && cmd != "migrate" {
-		return fmt.Errorf("unknown subcommand %q (want serve|worker|migrate|openapi)", cmd)
+	switch cmd {
+	case "serve", "worker", "migrate", "project", "apikey":
+	default:
+		return fmt.Errorf("unknown subcommand %q (want serve|worker|migrate|openapi|project|apikey)", cmd)
 	}
 
 	cfg, err := config.Load()
@@ -43,6 +45,10 @@ func Run(ctx context.Context, args []string) error {
 		return runServe(ctx, cfg, log)
 	case "worker":
 		return runWorker(ctx, cfg, log)
+	case "project":
+		return runProject(ctx, cfg, log, args[1:])
+	case "apikey":
+		return runAPIKey(ctx, cfg, log, args[1:])
 	default: // migrate (only remaining valid case)
 		return runMigrate(ctx, cfg, log)
 	}

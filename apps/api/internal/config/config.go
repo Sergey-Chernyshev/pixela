@@ -42,8 +42,14 @@ type Config struct {
 	S3ForcePathStyle bool   `env:"S3_FORCE_PATH_STYLE" envDefault:"true"`
 	S3UseSSL         bool   `env:"S3_USE_SSL" envDefault:"false"`
 
-	// Dashboard session signing secret (server-side sessions in Redis).
+	// Dashboard session signing secret (server-side sessions in Redis). Also the pepper for hashing
+	// ingestion API keys (HMAC), so rotating it invalidates existing keys — acceptable for self-host.
 	SessionSecret Secret `env:"SESSION_SECRET,required,notEmpty"`
+
+	// Max accepted PNG upload size in bytes (IMAGE_TOO_LARGE above it). Default 10 MiB.
+	ImageMaxBytes int64 `env:"IMAGE_MAX_BYTES" envDefault:"10485760"`
+	// TTL for presigned read URLs handed to the dashboard.
+	PresignedTTLSeconds int `env:"PRESIGNED_TTL_SECONDS" envDefault:"3600"`
 
 	// GitLab integration (optional in Phase 0).
 	GitLabBaseURL string `env:"GITLAB_BASE_URL" envDefault:"https://gitlab.com"`
