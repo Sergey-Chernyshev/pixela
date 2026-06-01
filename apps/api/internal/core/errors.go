@@ -15,6 +15,9 @@ var (
 	ErrImageTooLarge    = errors.New("image too large")
 	ErrBuildFinalized   = errors.New("build already finalized")
 	ErrConflict         = errors.New("conflict")
+	// ErrInvalidCredentials is a failed dashboard login (wrong email or password). It maps to 401 with a
+	// deliberately generic message so the response never reveals whether the email exists.
+	ErrInvalidCredentials = errors.New("invalid credentials")
 )
 
 // ErrorCode is the stable, machine-readable code returned to API clients (mirrors the spec's
@@ -30,5 +33,6 @@ const (
 	CodeHashMismatch     ErrorCode = "SNAPSHOT_HASH_MISMATCH"
 	CodeImageTooLarge    ErrorCode = "IMAGE_TOO_LARGE"
 	CodeBuildFinalized   ErrorCode = "BUILD_ALREADY_FINALIZED"
+	CodeInvalidCreds     ErrorCode = "INVALID_CREDENTIALS" //nolint:gosec // error code identifier, not a credential
 	CodeInternal         ErrorCode = "INTERNAL"
 )

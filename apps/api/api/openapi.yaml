@@ -26,6 +26,132 @@ components:
         - code
         - message
       type: object
+    ApprovalEntry:
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+        at:
+          format: date-time
+          type: string
+        user:
+          type: string
+      required:
+        - action
+        - user
+        - at
+      type: object
+    BuildDetail:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/BuildDetail.json
+          format: uri
+          readOnly: true
+          type: string
+        branch:
+          type: string
+        ciJobUrl:
+          type: string
+        commitSha:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          type: string
+        snapshots:
+          items:
+            $ref: "#/components/schemas/SnapshotBrief"
+          type:
+            - array
+            - "null"
+        status:
+          type: string
+      required:
+        - id
+        - branch
+        - commitSha
+        - status
+        - createdAt
+        - snapshots
+      type: object
+    BuildListItem:
+      additionalProperties: false
+      properties:
+        branch:
+          type: string
+        ciJobUrl:
+          type: string
+        commitSha:
+          type: string
+        counts:
+          $ref: "#/components/schemas/Counts"
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          type: string
+        status:
+          type: string
+      required:
+        - id
+        - branch
+        - commitSha
+        - status
+        - counts
+        - createdAt
+      type: object
+    BuildsPage:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/BuildsPage.json
+          format: uri
+          readOnly: true
+          type: string
+        items:
+          items:
+            $ref: "#/components/schemas/BuildListItem"
+          type:
+            - array
+            - "null"
+        page:
+          format: int64
+          type: integer
+        totalPages:
+          format: int64
+          type: integer
+      required:
+        - items
+        - page
+        - totalPages
+      type: object
+    Counts:
+      additionalProperties: false
+      properties:
+        changed:
+          format: int64
+          type: integer
+        new:
+          format: int64
+          type: integer
+        removed:
+          format: int64
+          type: integer
+        unchanged:
+          format: int64
+          type: integer
+      required:
+        - unchanged
+        - changed
+        - new
+        - removed
+      type: object
     CreateBuildInputBody:
       additionalProperties: false
       properties:
@@ -154,17 +280,302 @@ components:
       required:
         - status
       type: object
+    Images:
+      additionalProperties: false
+      properties:
+        baseline:
+          type:
+            - string
+            - "null"
+        diff:
+          type:
+            - string
+            - "null"
+        new:
+          type:
+            - string
+            - "null"
+      required:
+        - baseline
+        - new
+        - diff
+      type: object
+    ListProjectsOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/ListProjectsOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        projects:
+          items:
+            $ref: "#/components/schemas/ProjectView"
+          type:
+            - array
+            - "null"
+      required:
+        - projects
+      type: object
+    LoginInputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/LoginInputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        email:
+          description: Account email
+          format: email
+          minLength: 3
+          type: string
+        password:
+          description: Account password
+          minLength: 1
+          type: string
+      required:
+        - email
+        - password
+      type: object
+    LoginOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/LoginOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        email:
+          type: string
+        userId:
+          type: string
+      required:
+        - userId
+        - email
+      type: object
+    LogoutOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/LogoutOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        ok:
+          type: boolean
+      required:
+        - ok
+      type: object
+    ProjectView:
+      additionalProperties: false
+      properties:
+        createdAt:
+          format: date-time
+          type: string
+        defaultBranch:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        slug:
+          type: string
+      required:
+        - id
+        - name
+        - slug
+        - defaultBranch
+        - role
+        - createdAt
+      type: object
+    SnapshotBrief:
+      additionalProperties: false
+      properties:
+        browser:
+          type: string
+        diffRatio:
+          format: double
+          type: number
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        viewport:
+          type: string
+      required:
+        - id
+        - name
+        - browser
+        - viewport
+        - status
+      type: object
+    SnapshotReview:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/SnapshotReview.json
+          format: uri
+          readOnly: true
+          type: string
+        browser:
+          type: string
+        diffPixels:
+          format: int32
+          type: integer
+        diffRatio:
+          format: double
+          type: number
+        history:
+          items:
+            $ref: "#/components/schemas/ApprovalEntry"
+          type:
+            - array
+            - "null"
+        id:
+          type: string
+        images:
+          $ref: "#/components/schemas/Images"
+        name:
+          type: string
+        status:
+          type: string
+        viewport:
+          type: string
+      required:
+        - id
+        - name
+        - browser
+        - viewport
+        - status
+        - images
+        - history
+      type: object
+    User:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/User.json
+          format: uri
+          readOnly: true
+          type: string
+        email:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - email
+      type: object
   securitySchemes:
     ApiKeyAuth:
       description: "Ingestion credential. Send `Authorization: ApiKey <key>`."
       in: header
       name: Authorization
       type: apiKey
+    SessionCookie:
+      description: Dashboard session. Obtained from `POST /v1/auth/login`; sent automatically by the browser.
+      in: cookie
+      name: pixela_session
+      type: apiKey
 info:
   title: Pixela API
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /v1/auth/login:
+    post:
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginOutputBody"
+          description: OK
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      summary: Log in to the dashboard
+      tags:
+        - dashboard
+  /v1/auth/logout:
+    post:
+      operationId: logout
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutOutputBody"
+          description: OK
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Log out (revoke the session)
+      tags:
+        - dashboard
+  /v1/auth/me:
+    get:
+      operationId: me
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Current user
+      tags:
+        - dashboard
   /v1/builds:
     post:
       operationId: createBuild
@@ -193,6 +604,32 @@ paths:
       tags:
         - ingestion
   /v1/builds/{buildId}:
+    get:
+      operationId: getBuild
+      parameters:
+        - in: path
+          name: buildId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildDetail"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Build detail with snapshots
+      tags:
+        - dashboard
     patch:
       operationId: finalizeBuild
       parameters:
@@ -290,5 +727,102 @@ paths:
       summary: Upload screenshot bytes (step 2 of 2)
       tags:
         - ingestion
+  /v1/projects:
+    get:
+      operationId: listProjects
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListProjectsOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Projects you can access
+      tags:
+        - dashboard
+  /v1/projects/{projectId}/builds:
+    get:
+      operationId: listBuilds
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - description: Filter by branch (optional)
+          explode: false
+          in: query
+          name: branch
+          schema:
+            description: Filter by branch (optional)
+            type: string
+        - description: Filter by build status (optional)
+          explode: false
+          in: query
+          name: status
+          schema:
+            description: Filter by build status (optional)
+            type: string
+        - explode: false
+          in: query
+          name: page
+          schema:
+            default: 1
+            format: int64
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildsPage"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Build feed for a project
+      tags:
+        - dashboard
+  /v1/snapshots/{snapshotId}:
+    get:
+      operationId: getSnapshot
+      parameters:
+        - in: path
+          name: snapshotId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotReview"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Snapshot review payload (presigned images + history)
+      tags:
+        - dashboard
 servers:
   - url: /api

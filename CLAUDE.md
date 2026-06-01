@@ -67,7 +67,16 @@
 - [x] **Фаза 3: Playwright reporter** ✅ — `@pixela/playwright-reporter` (TS, packages/sdk): `Reporter`-класс,
   sha256 на клиенте, двухшаговая заливка с дедупом, GitLab-CI автодетект, шардинг (стабильный buildId),
   soft-mode + retry-backoff, Mode A (заливает baseline+new для ревью). 16 unit-тестов, build/typecheck зелёные.
-- [ ] Фаза 4: дашборд + review UI
+- [~] **Фаза 4: дашборд** — БЭКЕНД ✅ (логика), фронт-дизайн отдельно (см. ниже). Server-side сессии в Redis
+  (argon2id-пароли, opaque 256-bit cookie `pixela_session`, sliding TTL, logout=DEL), `internal/dashboard`
+  read/review-сервис: membership-scoped чтения на уровне SQL (никакого пост-фильтра в Go), точное
+  различение 404-vs-403 (не течём о существовании чужих ресурсов), presigned-URL baseline/new/diff для
+  review-вьюера, approval-история. 8 Huma-операций (`POST /v1/auth/{login,logout}`, `GET /v1/auth/me`,
+  `GET /v1/projects`, `GET /v1/projects/{id}/builds` со SQL-счётчиками статусов + пагинацией,
+  `GET /v1/builds/{id}`, `GET /v1/snapshots/{id}`), `SessionCookie` security-схема + session-middleware
+  (docs==enforcement, рядом с ApiKey), admin-CLI `user create` / `member add`. Integration-тест
+  (login/cookie/me, membership-изоляция, presigned-URL, 401/403/404, logout-ревокация) — зелёный, гейт зелёный.
+  Осталось: **дизайн фронта** (Angular review UI; `docs/design/` — референс).
 - [ ] Фаза 5: approve + GitLab
 - [ ] Фаза 6: уведомления
 - [ ] Фаза 7: деплой

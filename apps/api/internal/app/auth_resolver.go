@@ -12,6 +12,7 @@ import (
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/core"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/db"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/httpapi"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/session"
 )
 
 // newKeyResolver builds the ingestion API-key resolver: HMAC the presented key with the server pepper,
@@ -30,5 +31,28 @@ func newKeyResolver(database *db.DB, pepper string, log *slog.Logger) httpapi.AP
 			log.WarnContext(ctx, "failed to record api key last-used", "key_id", row.ID, "error", err.Error())
 		}
 		return auth.Principal{ProjectID: row.ProjectID, KeyID: row.ID}, nil
+	}
+}
+
+// newSessionResolver builds the dashboard session resolver: resolve the cookie's session id in Redis to
+// a user id (sliding the TTL), then load the user. An unknown/expired session or a deleted user is
+// core.ErrUnauthorized (the HTTP edge maps it to 401) — never a 500.
+func newSessionResolver(database *db.DB, sessions *session.Store) httpapi.SessionResolver {
+	return func(ctx context.Context, sid string) (auth.UserPrincipal, error) {
+		userID, err := sessions.Resolve(ctx, sid)
+		if errors.Is(err, session.ErrNotFound) {
+			return auth.UserPrincipal{}, fmt.Errorf("session: %w", core.ErrUnauthorized)
+		}
+		if err != nil {
+			return auth.UserPrincipal{}, fmt.Errorf("resolve session: %w", err)
+		}
+		user, err := database.Queries().GetUserByID(ctx, userID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return auth.UserPrincipal{}, fmt.Errorf("session user gone: %w", core.ErrUnauthorized)
+		}
+		if err != nil {
+			return auth.UserPrincipal{}, fmt.Errorf("load session user: %w", err)
+		}
+		return auth.UserPrincipal{UserID: user.ID, Email: user.Email}, nil
 	}
 }

@@ -37,6 +37,8 @@ func mapError(log *slog.Logger, err error) *apiError {
 	switch {
 	case errors.Is(err, core.ErrUnauthorized):
 		return newAPIError(http.StatusUnauthorized, core.CodeUnauthorized, "Authentication required")
+	case errors.Is(err, core.ErrInvalidCredentials):
+		return newAPIError(http.StatusUnauthorized, core.CodeInvalidCreds, "Invalid email or password")
 	case errors.Is(err, core.ErrForbiddenProject):
 		return newAPIError(http.StatusForbidden, core.CodeForbiddenProject, "Resource not in your project")
 	case errors.Is(err, core.ErrBuildNotFound):

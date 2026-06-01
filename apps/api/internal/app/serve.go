@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/config"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/dashboard"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/httpapi"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/ingestion"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/queue"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/session"
 )
 
 const shutdownTimeout = 30 * time.Second
@@ -32,16 +34,26 @@ func runServe(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 	ingestSvc := ingestion.NewService(d.db, d.store, q, cfg.ImageMaxBytes, log)
 
+	// Dashboard: server-side sessions in Redis (invariant: Redis is sessions-only), reads scoped to the
+	// caller's memberships, presigned image URLs for the review viewer.
+	sessions := session.NewStore(d.redis.Raw(), 0) // 0 → session.DefaultTTL
+	dashSvc := dashboard.NewService(d.db, sessions, d.store,
+		time.Duration(cfg.PresignedTTLSeconds)*time.Second, log)
+
 	var ready atomic.Bool
 	ready.Store(true) // adapters pinged in wire(); readiness reflects live checks from here on
 
 	srv := httpapi.NewServer(httpapi.Deps{
-		Logger:      log,
-		Checkers:    d.checkers(),
-		CORSOrigin:  cfg.CORSOrigin,
-		Ready:       &ready,
-		Ingestion:   ingestSvc,
-		KeyResolver: newKeyResolver(d.db, cfg.SessionSecret.Reveal(), log),
+		Logger:          log,
+		Checkers:        d.checkers(),
+		CORSOrigin:      cfg.CORSOrigin,
+		Ready:           &ready,
+		Ingestion:       ingestSvc,
+		KeyResolver:     newKeyResolver(d.db, cfg.SessionSecret.Reveal(), log),
+		Dashboard:       dashSvc,
+		SessionResolver: newSessionResolver(d.db, sessions),
+		SessionTTL:      sessions.TTL(),
+		CookieSecure:    cfg.IsProduction(),
 	})
 
 	httpServer := &http.Server{
