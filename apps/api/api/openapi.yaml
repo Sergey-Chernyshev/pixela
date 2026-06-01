@@ -285,6 +285,9 @@ components:
           format: uri
           readOnly: true
           type: string
+        baselinePath:
+          description: Repo-relative path of the baseline file (Mode A); optional
+          type: string
         browser:
           minLength: 1
           type: string

@@ -24,11 +24,14 @@ CREATE TABLE images (
 );
 
 CREATE TABLE projects (
-  id             TEXT        PRIMARY KEY,
-  name           TEXT        NOT NULL,
-  slug           TEXT        NOT NULL UNIQUE,
-  default_branch TEXT        NOT NULL DEFAULT 'main',
-  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                TEXT        PRIMARY KEY,
+  name              TEXT        NOT NULL,
+  slug              TEXT        NOT NULL UNIQUE,
+  default_branch    TEXT        NOT NULL DEFAULT 'main',
+  -- GitLab project id or path (e.g. "acme/storefront"); when set, approve commits the new baseline
+  -- back to this repo and build status is mirrored to the MR (Phase 5, Mode A / git-native).
+  gitlab_project_id TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE users (
@@ -96,6 +99,9 @@ CREATE TABLE snapshots (
   diff_pixels    INTEGER,
   status         snapshot_status NOT NULL DEFAULT 'PENDING',
   error_msg      TEXT,
+  -- Repo-relative path of this snapshot's baseline file (Playwright snapshot path), reported by the
+  -- reporter. On approve, Pixela commits the new image to this path on the build's branch (Mode A).
+  baseline_path  TEXT,
   created_at     TIMESTAMPTZ     NOT NULL DEFAULT now(),
   CONSTRAINT snapshots_build_name_browser_viewport_key
     UNIQUE (build_id, name, browser, viewport)

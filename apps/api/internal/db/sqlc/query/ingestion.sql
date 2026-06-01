@@ -25,12 +25,13 @@ ON CONFLICT (sha256) DO NOTHING;
 -- name: ImageExists :one
 SELECT EXISTS (SELECT 1 FROM images WHERE sha256 = @sha256) AS exists;
 
--- Idempotent snapshot declare (CI-retry safe) on the composite identity key.
+-- Idempotent snapshot declare (CI-retry safe) on the composite identity key. baseline_path is the
+-- repo-relative path of this snapshot's baseline file (Mode A), refreshed on re-declare.
 -- name: UpsertSnapshot :one
-INSERT INTO snapshots (id, build_id, name, browser, viewport, new_image_sha, status)
-VALUES (@id, @build_id, @name, @browser, @viewport, @new_image_sha, 'PENDING')
+INSERT INTO snapshots (id, build_id, name, browser, viewport, new_image_sha, baseline_path, status)
+VALUES (@id, @build_id, @name, @browser, @viewport, @new_image_sha, @baseline_path, 'PENDING')
 ON CONFLICT (build_id, name, browser, viewport)
-DO UPDATE SET new_image_sha = EXCLUDED.new_image_sha, status = 'PENDING'
+DO UPDATE SET new_image_sha = EXCLUDED.new_image_sha, baseline_path = EXCLUDED.baseline_path, status = 'PENDING'
 RETURNING *;
 
 -- Snapshots that still need a diff comparison (enqueued on finalize).

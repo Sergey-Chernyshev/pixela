@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { basename } from 'node:path';
+import { basename, relative, isAbsolute } from 'node:path';
 
 import type {
   FullConfig,
@@ -243,38 +243,35 @@ export default class PixelaReporter implements Reporter {
     let uploaded = 0;
     let deduped = 0;
 
-    // Upload the "new" image when present (a diff occurred or first run produced an actual).
+    // Upload the "new" image when present (a diff occurred or first run produced an actual). The
+    // baseline file PATH (Mode A) is sent on the declare so an approve can commit the new image there;
+    // the baseline BYTES are not re-uploaded (Pixela's baseline is the previously-approved new image,
+    // already in the store — re-declaring with the baseline would clobber new_image_sha).
     if (snap.actualPath !== undefined) {
+      const baselinePath =
+        this.resolved.uploadBaseline && snap.baselinePath !== undefined
+          ? this.repoRelative(snap.baselinePath)
+          : undefined;
       const newRes = await this.uploadOne(
         buildId,
         snap.name,
         snap.browser,
         snap.viewport,
         snap.actualPath,
+        baselinePath,
       );
       uploaded += newRes.uploaded;
       deduped += newRes.deduped;
     }
 
-    // Mode A: best-effort upload of the committed baseline for review/history.
-    if (this.resolved.uploadBaseline && snap.baselinePath !== undefined) {
-      try {
-        const baseRes = await this.uploadOne(
-          buildId,
-          snap.name,
-          snap.browser,
-          snap.viewport,
-          snap.baselinePath,
-        );
-        uploaded += baseRes.uploaded;
-        deduped += baseRes.deduped;
-      } catch (err) {
-        // Baseline upload is best-effort only — never let it break the run.
-        this.warn(`baseline upload skipped for "${snap.name}": ${(err as Error).message}`);
-      }
-    }
-
     return { uploaded, deduped };
+  }
+
+  /** Make a baseline path repo-relative (best effort, from the runner's cwd) so it maps onto the repo. */
+  private repoRelative(p: string): string {
+    if (!isAbsolute(p)) return p;
+    const rel = relative(process.cwd(), p);
+    return rel === '' ? p : rel;
   }
 
   private async uploadOne(
@@ -283,6 +280,7 @@ export default class PixelaReporter implements Reporter {
     browser: string,
     viewport: string,
     path: string,
+    baselinePath?: string,
   ): Promise<{ uploaded: number; deduped: number }> {
     if (this.client === undefined) {
       return { uploaded: 0, deduped: 0 };
@@ -299,6 +297,7 @@ export default class PixelaReporter implements Reporter {
       width,
       height,
       byteSize: bytes.byteLength,
+      baselinePath,
     });
 
     if (declared.needUpload) {

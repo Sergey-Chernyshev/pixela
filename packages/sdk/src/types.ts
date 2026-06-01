@@ -43,6 +43,11 @@ export interface DeclareSnapshotRequest {
   width: number;
   height: number;
   byteSize: number;
+  /**
+   * Repo-relative path of this snapshot's baseline file (Mode A / git-native). When set, approving the
+   * snapshot in the dashboard commits the new image to this path on the build's branch. Optional.
+   */
+  baselinePath?: string;
 }
 
 /** `POST /api/v1/builds/:buildId/snapshots` response body. */

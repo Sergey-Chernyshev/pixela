@@ -37,7 +37,7 @@ func runServe(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	// Dashboard: server-side sessions in Redis (invariant: Redis is sessions-only), reads scoped to the
 	// caller's memberships, presigned image URLs for the review viewer.
 	sessions := session.NewStore(d.redis.Raw(), 0) // 0 → session.DefaultTTL
-	dashSvc, err := dashboard.NewService(d.db, sessions, d.store,
+	dashSvc, err := dashboard.NewService(d.db, sessions, d.store, q,
 		time.Duration(cfg.PresignedTTLSeconds)*time.Second, log)
 	if err != nil {
 		return fmt.Errorf("dashboard service: %w", err)

@@ -60,6 +60,9 @@ type Config struct {
 	// GitLab integration (optional in Phase 0).
 	GitLabBaseURL string `env:"GITLAB_BASE_URL" envDefault:"https://gitlab.com"`
 	GitLabToken   Secret `env:"GITLAB_TOKEN"`
+	// PublicURL is the dashboard's externally-reachable base URL (e.g. https://pixela.acme.dev), used to
+	// build the GitLab commit-status target link. Optional.
+	PublicURL string `env:"PUBLIC_URL"`
 }
 
 // Load parses and validates configuration from the environment.

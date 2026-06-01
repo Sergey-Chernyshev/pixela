@@ -76,7 +76,7 @@ func (q *Queries) GetBaselineForKey(ctx context.Context, arg GetBaselineForKeyPa
 
 const getSnapshot = `-- name: GetSnapshot :one
 
-SELECT id, build_id, name, browser, viewport, new_image_sha, diff_image_sha, baseline_id, diff_ratio, diff_pixels, status, error_msg, created_at FROM snapshots WHERE id = $1
+SELECT id, build_id, name, browser, viewport, new_image_sha, diff_image_sha, baseline_id, diff_ratio, diff_pixels, status, error_msg, baseline_path, created_at FROM snapshots WHERE id = $1
 `
 
 // Diff pipeline (Phase 2): baseline resolution, per-snapshot result, build-status recompute.
@@ -96,6 +96,7 @@ func (q *Queries) GetSnapshot(ctx context.Context, id string) (Snapshot, error) 
 		&i.DiffPixels,
 		&i.Status,
 		&i.ErrorMsg,
+		&i.BaselinePath,
 		&i.CreatedAt,
 	)
 	return i, err

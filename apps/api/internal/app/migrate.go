@@ -28,10 +28,33 @@ func runMigrate(ctx context.Context, cfg config.Config, log *slog.Logger) error 
 	if err := applySchema(ctx, pool, log); err != nil {
 		return err
 	}
+	if err := applyIncrementalMigrations(ctx, pool, log); err != nil {
+		return err
+	}
 	if err := queue.Migrate(ctx, pool); err != nil {
 		return fmt.Errorf("river migrate: %w", err)
 	}
 	log.Info("migrations applied")
+	return nil
+}
+
+// incrementalMigrations are idempotent, additive DDL statements applied on EVERY migrate (after the
+// initial schema). They bring an already-initialized database forward without a full Atlas runtime —
+// each must be safe to re-run (ADD COLUMN IF NOT EXISTS, etc.). Append-only; never edit/remove past
+// entries. See docs/architecture/go-backend.md §8.4.
+var incrementalMigrations = []string{
+	// Phase 5 (Mode A git-native): per-project GitLab repo + per-snapshot baseline file path.
+	`ALTER TABLE projects ADD COLUMN IF NOT EXISTS gitlab_project_id TEXT`,
+	`ALTER TABLE snapshots ADD COLUMN IF NOT EXISTS baseline_path TEXT`,
+}
+
+func applyIncrementalMigrations(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) error {
+	for i, stmt := range incrementalMigrations {
+		if _, err := pool.Exec(ctx, stmt); err != nil {
+			return fmt.Errorf("incremental migration %d (%q): %w", i, stmt, err)
+		}
+	}
+	log.Info("incremental migrations applied", "count", len(incrementalMigrations))
 	return nil
 }
 

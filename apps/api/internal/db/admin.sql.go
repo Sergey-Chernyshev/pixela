@@ -45,7 +45,7 @@ const createProject = `-- name: CreateProject :one
 
 INSERT INTO projects (id, name, slug, default_branch)
 VALUES ($1, $2, $3, $4)
-RETURNING id, name, slug, default_branch, created_at
+RETURNING id, name, slug, default_branch, gitlab_project_id, created_at
 `
 
 type CreateProjectParams struct {
@@ -69,6 +69,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.Name,
 		&i.Slug,
 		&i.DefaultBranch,
+		&i.GitlabProjectID,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -91,7 +92,7 @@ func (q *Queries) GetAPIKeyByHash(ctx context.Context, keyHash string) (GetAPIKe
 }
 
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, name, slug, default_branch, created_at FROM projects WHERE id = $1
+SELECT id, name, slug, default_branch, gitlab_project_id, created_at FROM projects WHERE id = $1
 `
 
 func (q *Queries) GetProjectByID(ctx context.Context, id string) (Project, error) {
@@ -102,13 +103,14 @@ func (q *Queries) GetProjectByID(ctx context.Context, id string) (Project, error
 		&i.Name,
 		&i.Slug,
 		&i.DefaultBranch,
+		&i.GitlabProjectID,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, name, slug, default_branch, created_at FROM projects WHERE slug = $1
+SELECT id, name, slug, default_branch, gitlab_project_id, created_at FROM projects WHERE slug = $1
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (Project, error) {
@@ -119,6 +121,7 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (Project, e
 		&i.Name,
 		&i.Slug,
 		&i.DefaultBranch,
+		&i.GitlabProjectID,
 		&i.CreatedAt,
 	)
 	return i, err

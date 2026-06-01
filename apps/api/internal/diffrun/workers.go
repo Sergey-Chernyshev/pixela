@@ -30,11 +30,17 @@ type Deps struct {
 
 // Workers builds the River workers bundle for the worker process. Defaults are filled for a nil engine.
 func Workers(d Deps) *river.Workers {
+	w := river.NewWorkers()
+	AddWorkers(w, d)
+	return w
+}
+
+// AddWorkers registers the diff-pipeline workers into an existing bundle so the worker process can merge
+// them with other bundles (e.g. internal/gitsync).
+func AddWorkers(w *river.Workers, d Deps) {
 	if d.Engine == nil {
 		d.Engine = diff.NewStdlibEngine()
 	}
-	w := river.NewWorkers()
 	river.AddWorker(w, &diffWorker{deps: d})
 	river.AddWorker(w, &finalizeWorker{db: d.DB, log: d.Log})
-	return w
 }

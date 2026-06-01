@@ -246,23 +246,25 @@ func (q *Queries) UpsertImage(ctx context.Context, arg UpsertImageParams) error 
 }
 
 const upsertSnapshot = `-- name: UpsertSnapshot :one
-INSERT INTO snapshots (id, build_id, name, browser, viewport, new_image_sha, status)
-VALUES ($1, $2, $3, $4, $5, $6, 'PENDING')
+INSERT INTO snapshots (id, build_id, name, browser, viewport, new_image_sha, baseline_path, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 'PENDING')
 ON CONFLICT (build_id, name, browser, viewport)
-DO UPDATE SET new_image_sha = EXCLUDED.new_image_sha, status = 'PENDING'
-RETURNING id, build_id, name, browser, viewport, new_image_sha, diff_image_sha, baseline_id, diff_ratio, diff_pixels, status, error_msg, created_at
+DO UPDATE SET new_image_sha = EXCLUDED.new_image_sha, baseline_path = EXCLUDED.baseline_path, status = 'PENDING'
+RETURNING id, build_id, name, browser, viewport, new_image_sha, diff_image_sha, baseline_id, diff_ratio, diff_pixels, status, error_msg, baseline_path, created_at
 `
 
 type UpsertSnapshotParams struct {
-	ID          string  `json:"id"`
-	BuildID     string  `json:"build_id"`
-	Name        string  `json:"name"`
-	Browser     string  `json:"browser"`
-	Viewport    string  `json:"viewport"`
-	NewImageSha *string `json:"new_image_sha"`
+	ID           string  `json:"id"`
+	BuildID      string  `json:"build_id"`
+	Name         string  `json:"name"`
+	Browser      string  `json:"browser"`
+	Viewport     string  `json:"viewport"`
+	NewImageSha  *string `json:"new_image_sha"`
+	BaselinePath *string `json:"baseline_path"`
 }
 
-// Idempotent snapshot declare (CI-retry safe) on the composite identity key.
+// Idempotent snapshot declare (CI-retry safe) on the composite identity key. baseline_path is the
+// repo-relative path of this snapshot's baseline file (Mode A), refreshed on re-declare.
 func (q *Queries) UpsertSnapshot(ctx context.Context, arg UpsertSnapshotParams) (Snapshot, error) {
 	row := q.db.QueryRow(ctx, upsertSnapshot,
 		arg.ID,
@@ -271,6 +273,7 @@ func (q *Queries) UpsertSnapshot(ctx context.Context, arg UpsertSnapshotParams) 
 		arg.Browser,
 		arg.Viewport,
 		arg.NewImageSha,
+		arg.BaselinePath,
 	)
 	var i Snapshot
 	err := row.Scan(
@@ -286,6 +289,7 @@ func (q *Queries) UpsertSnapshot(ctx context.Context, arg UpsertSnapshotParams) 
 		&i.DiffPixels,
 		&i.Status,
 		&i.ErrorMsg,
+		&i.BaselinePath,
 		&i.CreatedAt,
 	)
 	return i, err

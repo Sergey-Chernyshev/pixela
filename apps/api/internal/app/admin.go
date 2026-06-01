@@ -15,13 +15,14 @@ import (
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/db"
 )
 
-// runProject is the admin bootstrap: `pixela project create <name> <slug>`. Dashboard project CRUD
-// with session auth arrives in Phase 4; this lets a self-hoster (and CI) get going now.
+// runProject is the admin bootstrap for projects:
+//
+//	pixela project create <name> <slug>
+//	pixela project set-gitlab <slug> <gitlab-project-id>   # wire a repo for Mode A approve→commit + MR status
 func runProject(ctx context.Context, cfg config.Config, log *slog.Logger, sub []string) error {
-	if len(sub) < 3 || sub[0] != "create" {
-		return errors.New("usage: pixela project create <name> <slug>")
+	if len(sub) == 0 {
+		return errors.New("usage: pixela project create <name> <slug> | pixela project set-gitlab <slug> <gitlab-project-id>")
 	}
-	name, slug := sub[1], sub[2]
 
 	database, err := db.Open(ctx, cfg.DatabaseURL.Reveal(), log)
 	if err != nil {
@@ -29,17 +30,32 @@ func runProject(ctx context.Context, cfg config.Config, log *slog.Logger, sub []
 	}
 	defer database.Close()
 
-	project, err := database.Queries().CreateProject(ctx, db.CreateProjectParams{
-		ID:            core.NewID(),
-		Name:          name,
-		Slug:          slug,
-		DefaultBranch: "main",
-	})
-	if err != nil {
-		return fmt.Errorf("create project: %w", err)
+	switch sub[0] {
+	case "create":
+		if len(sub) < 3 {
+			return errors.New("usage: pixela project create <name> <slug>")
+		}
+		project, err := database.Queries().CreateProject(ctx, db.CreateProjectParams{
+			ID: core.NewID(), Name: sub[1], Slug: sub[2], DefaultBranch: "main",
+		})
+		if err != nil {
+			return fmt.Errorf("create project: %w", err)
+		}
+		fmt.Printf("created project %q (id %s)\n", project.Slug, project.ID)
+		return nil
+	case "set-gitlab":
+		if len(sub) < 3 {
+			return errors.New("usage: pixela project set-gitlab <slug> <gitlab-project-id>")
+		}
+		gitlabID := sub[2]
+		if err := database.Queries().SetProjectGitlab(ctx, db.SetProjectGitlabParams{Slug: sub[1], GitlabProjectID: &gitlabID}); err != nil {
+			return fmt.Errorf("set gitlab: %w", err)
+		}
+		fmt.Printf("project %q wired to GitLab repo %q (approve will commit baselines + post MR status)\n", sub[1], gitlabID)
+		return nil
+	default:
+		return fmt.Errorf("unknown project subcommand %q (want create|set-gitlab)", sub[0])
 	}
-	fmt.Printf("created project %q (id %s)\n", project.Slug, project.ID)
-	return nil
 }
 
 // runAPIKey is the admin bootstrap: `pixela apikey create <project-slug> [key-name]`. It mints a key,

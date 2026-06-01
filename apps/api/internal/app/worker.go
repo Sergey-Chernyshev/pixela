@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/riverqueue/river"
+
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/config"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/diff"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/diffrun"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/gitlab"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/gitsync"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/queue"
 )
 
@@ -19,13 +23,22 @@ func runWorker(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 	defer d.close()
 
-	workers := diffrun.Workers(diffrun.Deps{
+	workers := river.NewWorkers()
+	diffrun.AddWorkers(workers, diffrun.Deps{
 		DB:                 d.db,
 		Store:              d.store,
 		Engine:             diff.NewStdlibEngine(),
 		Log:                log,
 		Options:            diff.DefaultOptions(),
 		DiffRatioThreshold: 0, // any changed pixel => CHANGED (per-project override is a later refinement)
+	})
+	// Git-native side effects (Mode A): commit approved baselines + mirror build status to GitLab.
+	gitsync.AddWorkers(workers, gitsync.Deps{
+		DB:        d.db,
+		Store:     d.store,
+		GitLab:    gitlab.New(cfg.GitLabBaseURL, cfg.GitLabToken.Reveal()),
+		Log:       log,
+		PublicURL: cfg.PublicURL,
 	})
 	q, err := queue.NewWorkerClient(d.db.Pool(), log, workers)
 	if err != nil {

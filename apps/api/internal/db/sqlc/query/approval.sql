@@ -7,7 +7,7 @@
 -- name: GetSnapshotForReview :one
 SELECT
   s.id, s.build_id, b.project_id, b.branch,
-  s.name, s.browser, s.viewport, s.new_image_sha, s.status
+  s.name, s.browser, s.viewport, s.new_image_sha, s.baseline_path, s.status
 FROM snapshots s
 JOIN builds b ON b.id = s.build_id
 JOIN memberships m ON m.project_id = b.project_id
@@ -16,7 +16,7 @@ WHERE s.id = @snapshot_id AND m.user_id = @user_id;
 -- All snapshots in a build that a reviewer can act on (batch approve/reject). Build membership is
 -- checked separately via GetBuildForMember before this runs.
 -- name: ListReviewableSnapshotsForBuild :many
-SELECT s.id, s.name, s.browser, s.viewport, s.new_image_sha, s.status, b.project_id, b.branch
+SELECT s.id, s.name, s.browser, s.viewport, s.new_image_sha, s.baseline_path, s.status, b.project_id, b.branch
 FROM snapshots s
 JOIN builds b ON b.id = s.build_id
 WHERE s.build_id = @build_id AND s.status IN ('CHANGED', 'NEW', 'REMOVED', 'ERROR')
@@ -53,3 +53,11 @@ VALUES (@id, @snapshot_id, @user_id, @action);
 -- Rejected snapshots in a build (a single rejection moves the whole build to REJECTED).
 -- name: CountRejectedSnapshots :one
 SELECT count(*) FROM snapshots WHERE build_id = @build_id AND status = 'REJECTED';
+
+-- Project's GitLab wiring (used by the git-sync worker to commit baselines / post MR status).
+-- name: GetProjectGitlab :one
+SELECT id, name, slug, gitlab_project_id FROM projects WHERE id = @id;
+
+-- Set (or clear) a project's GitLab repo id/path (admin CLI: `pixela project set-gitlab`).
+-- name: SetProjectGitlab :exec
+UPDATE projects SET gitlab_project_id = @gitlab_project_id WHERE slug = @slug;

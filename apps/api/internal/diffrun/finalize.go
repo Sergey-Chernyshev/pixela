@@ -55,6 +55,11 @@ func (w *finalizeWorker) Work(ctx context.Context, job *river.Job[queue.Finalize
 	if err := qtx.SetBuildStatus(ctx, db.SetBuildStatusParams{Status: status, ID: buildID}); err != nil {
 		return fmt.Errorf("set build status: %w", err)
 	}
+	// Mirror the new review state to GitLab (Mode A 5c) — enqueued in the same tx; the git-sync worker
+	// no-ops when GitLab is not configured for the project.
+	if err := queue.EnqueueGitStatusFromContextTx(ctx, tx, buildID); err != nil {
+		return fmt.Errorf("enqueue git status: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit finalize: %w", err)
 	}

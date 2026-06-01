@@ -47,11 +47,35 @@ func (q *Queries) DeleteBaselineForKey(ctx context.Context, arg DeleteBaselineFo
 	return err
 }
 
+const getProjectGitlab = `-- name: GetProjectGitlab :one
+SELECT id, name, slug, gitlab_project_id FROM projects WHERE id = $1
+`
+
+type GetProjectGitlabRow struct {
+	ID              string  `json:"id"`
+	Name            string  `json:"name"`
+	Slug            string  `json:"slug"`
+	GitlabProjectID *string `json:"gitlab_project_id"`
+}
+
+// Project's GitLab wiring (used by the git-sync worker to commit baselines / post MR status).
+func (q *Queries) GetProjectGitlab(ctx context.Context, id string) (GetProjectGitlabRow, error) {
+	row := q.db.QueryRow(ctx, getProjectGitlab, id)
+	var i GetProjectGitlabRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.GitlabProjectID,
+	)
+	return i, err
+}
+
 const getSnapshotForReview = `-- name: GetSnapshotForReview :one
 
 SELECT
   s.id, s.build_id, b.project_id, b.branch,
-  s.name, s.browser, s.viewport, s.new_image_sha, s.status
+  s.name, s.browser, s.viewport, s.new_image_sha, s.baseline_path, s.status
 FROM snapshots s
 JOIN builds b ON b.id = s.build_id
 JOIN memberships m ON m.project_id = b.project_id
@@ -64,15 +88,16 @@ type GetSnapshotForReviewParams struct {
 }
 
 type GetSnapshotForReviewRow struct {
-	ID          string         `json:"id"`
-	BuildID     string         `json:"build_id"`
-	ProjectID   string         `json:"project_id"`
-	Branch      string         `json:"branch"`
-	Name        string         `json:"name"`
-	Browser     string         `json:"browser"`
-	Viewport    string         `json:"viewport"`
-	NewImageSha *string        `json:"new_image_sha"`
-	Status      SnapshotStatus `json:"status"`
+	ID           string         `json:"id"`
+	BuildID      string         `json:"build_id"`
+	ProjectID    string         `json:"project_id"`
+	Branch       string         `json:"branch"`
+	Name         string         `json:"name"`
+	Browser      string         `json:"browser"`
+	Viewport     string         `json:"viewport"`
+	NewImageSha  *string        `json:"new_image_sha"`
+	BaselinePath *string        `json:"baseline_path"`
+	Status       SnapshotStatus `json:"status"`
 }
 
 // Approval workflow (Phase 5): approve/reject snapshots, move the git-native baseline (Mode A), and
@@ -92,6 +117,7 @@ func (q *Queries) GetSnapshotForReview(ctx context.Context, arg GetSnapshotForRe
 		&i.Browser,
 		&i.Viewport,
 		&i.NewImageSha,
+		&i.BaselinePath,
 		&i.Status,
 	)
 	return i, err
@@ -120,7 +146,7 @@ func (q *Queries) InsertApprovalEvent(ctx context.Context, arg InsertApprovalEve
 }
 
 const listReviewableSnapshotsForBuild = `-- name: ListReviewableSnapshotsForBuild :many
-SELECT s.id, s.name, s.browser, s.viewport, s.new_image_sha, s.status, b.project_id, b.branch
+SELECT s.id, s.name, s.browser, s.viewport, s.new_image_sha, s.baseline_path, s.status, b.project_id, b.branch
 FROM snapshots s
 JOIN builds b ON b.id = s.build_id
 WHERE s.build_id = $1 AND s.status IN ('CHANGED', 'NEW', 'REMOVED', 'ERROR')
@@ -128,14 +154,15 @@ ORDER BY s.name, s.browser, s.viewport
 `
 
 type ListReviewableSnapshotsForBuildRow struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	Browser     string         `json:"browser"`
-	Viewport    string         `json:"viewport"`
-	NewImageSha *string        `json:"new_image_sha"`
-	Status      SnapshotStatus `json:"status"`
-	ProjectID   string         `json:"project_id"`
-	Branch      string         `json:"branch"`
+	ID           string         `json:"id"`
+	Name         string         `json:"name"`
+	Browser      string         `json:"browser"`
+	Viewport     string         `json:"viewport"`
+	NewImageSha  *string        `json:"new_image_sha"`
+	BaselinePath *string        `json:"baseline_path"`
+	Status       SnapshotStatus `json:"status"`
+	ProjectID    string         `json:"project_id"`
+	Branch       string         `json:"branch"`
 }
 
 // All snapshots in a build that a reviewer can act on (batch approve/reject). Build membership is
@@ -155,6 +182,7 @@ func (q *Queries) ListReviewableSnapshotsForBuild(ctx context.Context, buildID s
 			&i.Browser,
 			&i.Viewport,
 			&i.NewImageSha,
+			&i.BaselinePath,
 			&i.Status,
 			&i.ProjectID,
 			&i.Branch,
@@ -167,6 +195,21 @@ func (q *Queries) ListReviewableSnapshotsForBuild(ctx context.Context, buildID s
 		return nil, err
 	}
 	return items, nil
+}
+
+const setProjectGitlab = `-- name: SetProjectGitlab :exec
+UPDATE projects SET gitlab_project_id = $1 WHERE slug = $2
+`
+
+type SetProjectGitlabParams struct {
+	GitlabProjectID *string `json:"gitlab_project_id"`
+	Slug            string  `json:"slug"`
+}
+
+// Set (or clear) a project's GitLab repo id/path (admin CLI: `pixela project set-gitlab`).
+func (q *Queries) SetProjectGitlab(ctx context.Context, arg SetProjectGitlabParams) error {
+	_, err := q.db.Exec(ctx, setProjectGitlab, arg.GitlabProjectID, arg.Slug)
+	return err
 }
 
 const setSnapshotApproved = `-- name: SetSnapshotApproved :exec

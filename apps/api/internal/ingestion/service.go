@@ -73,6 +73,9 @@ type DeclareSnapshotInput struct {
 	Width       int32
 	Height      int32
 	ByteSize    int32
+	// BaselinePath is the repo-relative path of this snapshot's baseline file (Mode A); optional. On
+	// approve, Pixela commits the new image to this path on the build's branch.
+	BaselinePath *string
 }
 
 // DeclareSnapshot performs the two-phase upload's step 1: idempotently upsert the snapshot row and
@@ -94,12 +97,13 @@ func (s *Service) DeclareSnapshot(ctx context.Context, projectID, buildID string
 
 	sha := in.ImageSha256
 	snap, err := s.db.Queries().UpsertSnapshot(ctx, db.UpsertSnapshotParams{
-		ID:          core.NewID(),
-		BuildID:     buildID,
-		Name:        in.Name,
-		Browser:     in.Browser,
-		Viewport:    in.Viewport,
-		NewImageSha: &sha,
+		ID:           core.NewID(),
+		BuildID:      buildID,
+		Name:         in.Name,
+		Browser:      in.Browser,
+		Viewport:     in.Viewport,
+		NewImageSha:  &sha,
+		BaselinePath: in.BaselinePath,
 	})
 	if err != nil {
 		return "", false, fmt.Errorf("upsert snapshot: %w", err)

@@ -333,11 +333,12 @@ type Membership struct {
 }
 
 type Project struct {
-	ID            string             `json:"id"`
-	Name          string             `json:"name"`
-	Slug          string             `json:"slug"`
-	DefaultBranch string             `json:"default_branch"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	Slug            string             `json:"slug"`
+	DefaultBranch   string             `json:"default_branch"`
+	GitlabProjectID *string            `json:"gitlab_project_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type Snapshot struct {
@@ -353,6 +354,7 @@ type Snapshot struct {
 	DiffPixels   *int32             `json:"diff_pixels"`
 	Status       SnapshotStatus     `json:"status"`
 	ErrorMsg     *string            `json:"error_msg"`
+	BaselinePath *string            `json:"baseline_path"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 

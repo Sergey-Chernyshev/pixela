@@ -9,6 +9,15 @@ import (
 
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/core"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/db"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/queue"
+)
+
+// git file actions on the wire (the git-sync worker maps these to gitlab.Action). Kept as local string
+// constants so the dashboard package does not depend on internal/gitlab.
+const (
+	gitActionCreate = "create"
+	gitActionUpdate = "update"
+	gitActionDelete = "delete"
 )
 
 // ReviewResult is returned to the UI after an approve/reject so it can reflect the build's new status
@@ -23,7 +32,7 @@ type ReviewResult struct {
 // (GetSnapshotForReview) or the batch (ListReviewableSnapshotsForBuild) query rows.
 type reviewSnap struct {
 	id, projectID, branch, name, browser, viewport string
-	newImageSha                                    *string
+	newImageSha, baselinePath                      *string
 	status                                         string
 }
 
@@ -48,7 +57,8 @@ func (s *Service) reviewOne(ctx context.Context, userID, snapshotID string, acti
 	}
 	rs := reviewSnap{
 		id: row.ID, projectID: row.ProjectID, branch: row.Branch, name: row.Name,
-		browser: row.Browser, viewport: row.Viewport, newImageSha: row.NewImageSha, status: string(row.Status),
+		browser: row.Browser, viewport: row.Viewport, newImageSha: row.NewImageSha,
+		baselinePath: row.BaselinePath, status: string(row.Status),
 	}
 	return s.applyReview(ctx, userID, row.BuildID, []reviewSnap{rs}, action)
 }
@@ -81,7 +91,8 @@ func (s *Service) reviewBuild(ctx context.Context, userID, buildID string, actio
 		}
 		snaps = append(snaps, reviewSnap{
 			id: r.ID, projectID: r.ProjectID, branch: r.Branch, name: r.Name,
-			browser: r.Browser, viewport: r.Viewport, newImageSha: r.NewImageSha, status: string(r.Status),
+			browser: r.Browser, viewport: r.Viewport, newImageSha: r.NewImageSha,
+			baselinePath: r.BaselinePath, status: string(r.Status),
 		})
 	}
 	return s.applyReview(ctx, userID, buildID, snaps, action)
@@ -113,10 +124,50 @@ func (s *Service) applyReview(ctx context.Context, userID, buildID string, snaps
 	if err != nil {
 		return ReviewResult{}, err
 	}
+
+	// Mode A side effects, enqueued in the SAME tx (so they exist iff the review commits). The git-sync
+	// worker no-ops when the project has no GitLab repo / no token configured.
+	if action == db.ApprovalActionAPPROVE {
+		if files := gitFilesForApprove(snaps); len(files) > 0 {
+			if err := s.queue.EnqueueGitCommitTx(ctx, tx, queue.GitCommitJobArgs{BuildID: buildID, UserID: userID, Files: files}); err != nil {
+				return ReviewResult{}, err
+			}
+		}
+	}
+	if err := s.queue.EnqueueGitStatusTx(ctx, tx, buildID); err != nil {
+		return ReviewResult{}, err
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return ReviewResult{}, fmt.Errorf("commit review: %w", err)
 	}
 	return ReviewResult{BuildID: buildID, BuildStatus: string(status), Affected: affected}, nil
+}
+
+// gitFilesForApprove maps approved snapshots (that carry a baseline path) to GitLab file actions:
+// CHANGED→update, NEW→create, REMOVED→delete. Snapshots without a baseline_path (the reporter did not
+// report one) are skipped — Pixela cannot know where to write them.
+func gitFilesForApprove(snaps []reviewSnap) []queue.GitCommitFile {
+	files := make([]queue.GitCommitFile, 0, len(snaps))
+	for _, rs := range snaps {
+		if rs.baselinePath == nil || *rs.baselinePath == "" {
+			continue
+		}
+		switch rs.status {
+		case string(db.SnapshotStatusCHANGED), string(db.SnapshotStatusNEW):
+			if rs.newImageSha == nil {
+				continue
+			}
+			action := string(gitActionUpdate)
+			if rs.status == string(db.SnapshotStatusNEW) {
+				action = string(gitActionCreate)
+			}
+			files = append(files, queue.GitCommitFile{Action: action, Path: *rs.baselinePath, ImageSha: *rs.newImageSha})
+		case string(db.SnapshotStatusREMOVED):
+			files = append(files, queue.GitCommitFile{Action: string(gitActionDelete), Path: *rs.baselinePath})
+		}
+	}
+	return files
 }
 
 func (s *Service) applyOne(ctx context.Context, qtx *db.Queries, userID, buildID string, rs reviewSnap, action db.ApprovalAction) error {

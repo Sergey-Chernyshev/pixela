@@ -17,17 +17,21 @@ import (
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/auth"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/core"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/db"
+	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/queue"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/session"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/storage"
 )
 
 const buildsPageSize = 20
 
-// Service orchestrates the dashboard reads over the DB, the session store and the object store.
+// Service orchestrates the dashboard reads over the DB, the session store and the object store. The
+// queue lets review actions enqueue git-native side effects (baseline commit + GitLab status) in the
+// same transaction as the approve.
 type Service struct {
 	db         *db.DB
 	sessions   *session.Store
 	store      *storage.Store
+	queue      *queue.Queue
 	log        *slog.Logger
 	presignTTL time.Duration
 	// decoyHash is a valid argon2id hash computed once at startup. Login verifies against it on the
@@ -38,13 +42,13 @@ type Service struct {
 
 // NewService wires the dashboard service. It precomputes the login decoy hash; a crypto/rand failure
 // here aborts startup (the alternative — skipping it — would silently reopen the enumeration oracle).
-func NewService(database *db.DB, sessions *session.Store, store *storage.Store, presignTTL time.Duration, log *slog.Logger) (*Service, error) {
+func NewService(database *db.DB, sessions *session.Store, store *storage.Store, q *queue.Queue, presignTTL time.Duration, log *slog.Logger) (*Service, error) {
 	decoy, err := auth.HashPassword(core.NewID())
 	if err != nil {
 		return nil, fmt.Errorf("init login decoy hash: %w", err)
 	}
 	return &Service{
-		db: database, sessions: sessions, store: store, presignTTL: presignTTL, log: log, decoyHash: decoy,
+		db: database, sessions: sessions, store: store, queue: q, presignTTL: presignTTL, log: log, decoyHash: decoy,
 	}, nil
 }
 

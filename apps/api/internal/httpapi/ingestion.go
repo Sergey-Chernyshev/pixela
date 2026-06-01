@@ -53,13 +53,14 @@ func registerIngestion(api huma.API, svc *ingestion.Service, log *slog.Logger) {
 			return nil, err
 		}
 		snapshotID, needUpload, err := svc.DeclareSnapshot(ctx, p.ProjectID, in.BuildID, ingestion.DeclareSnapshotInput{
-			Name:        in.Body.Name,
-			Browser:     in.Body.Browser,
-			Viewport:    in.Body.Viewport,
-			ImageSha256: in.Body.ImageSha256,
-			Width:       in.Body.Width,
-			Height:      in.Body.Height,
-			ByteSize:    in.Body.ByteSize,
+			Name:         in.Body.Name,
+			Browser:      in.Body.Browser,
+			Viewport:     in.Body.Viewport,
+			ImageSha256:  in.Body.ImageSha256,
+			Width:        in.Body.Width,
+			Height:       in.Body.Height,
+			ByteSize:     in.Body.ByteSize,
+			BaselinePath: in.Body.BaselinePath,
 		})
 		if err != nil {
 			return nil, mapError(log, err)
@@ -137,13 +138,14 @@ type createBuildOutput struct {
 type declareSnapshotInput struct {
 	BuildID string `path:"buildId"`
 	Body    struct {
-		Name        string `json:"name" minLength:"1"`
-		Browser     string `json:"browser" minLength:"1"`
-		Viewport    string `json:"viewport" minLength:"1"`
-		ImageSha256 string `json:"imageSha256" pattern:"^[a-f0-9]{64}$" doc:"sha256 of the PNG bytes, lowercase hex"`
-		Width       int32  `json:"width" minimum:"1"`
-		Height      int32  `json:"height" minimum:"1"`
-		ByteSize    int32  `json:"byteSize" minimum:"1"`
+		Name         string  `json:"name" minLength:"1"`
+		Browser      string  `json:"browser" minLength:"1"`
+		Viewport     string  `json:"viewport" minLength:"1"`
+		ImageSha256  string  `json:"imageSha256" pattern:"^[a-f0-9]{64}$" doc:"sha256 of the PNG bytes, lowercase hex"`
+		Width        int32   `json:"width" minimum:"1"`
+		Height       int32   `json:"height" minimum:"1"`
+		ByteSize     int32   `json:"byteSize" minimum:"1"`
+		BaselinePath *string `json:"baselinePath,omitempty" doc:"Repo-relative path of the baseline file (Mode A); optional"`
 	}
 }
 
