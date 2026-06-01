@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Playwright reporter that uploads screenshots to Pixela. Scaffold — implemented in Phase 3 (docs/spec/agents/05-playwright-reporter.md).",
+  "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

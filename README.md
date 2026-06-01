@@ -89,3 +89,7 @@ pre-started infra and leaves no state behind.
 ```bash
 pnpm --filter @pixela/api run test
 ```
+
+## License
+
+[MIT](LICENSE) © Sergey Chernyshev. Open source — contributions welcome.

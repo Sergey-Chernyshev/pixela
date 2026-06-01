@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Shared TypeScript types mirroring the API contract (docs/spec/specs/04-api-contract.md). Scaffold — populated from Phase 1 onward.",
+  "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [

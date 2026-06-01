@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Pixela API + diff worker (NestJS). One image, two modes via API_MODE.",
+  "license": "MIT",
   "main": "dist/main.js",
   "scripts": {
     "build": "nest build",
