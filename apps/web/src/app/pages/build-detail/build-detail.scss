@@ -1,0 +1,236 @@
+/* Build-detail page chrome, ported from the design mock (docs/design/project/builddetail.html).
+   The global stylesheet provides .shell/.side/.nav/.topbar/.body/.chip/.status/.switch/.breadcrumb/
+   .empty-state/.sk/.btn — defined here are only the page-local pieces (header, action row, snapshot grid).
+   The mock's screenshot thumbnails are intentionally absent: SnapshotBrief carries no image URL, so the
+   cards are status-forward (ribbon + name + meta + diff%) instead. */
+
+:host {
+  display: contents;
+}
+
+/* ---- header ---- */
+.dhead {
+  flex: 0 0 auto;
+  padding: 16px 24px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.dhead .breadcrumb {
+  margin-bottom: 10px;
+}
+.titlerow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.dhead h1 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.dhead h1 svg {
+  width: 17px;
+  height: 17px;
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+.dmeta {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 11px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  flex-wrap: wrap;
+}
+.dmeta .it {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.dmeta .hash {
+  font-family: var(--mono);
+  color: var(--text-1);
+}
+.dmeta svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+
+/* ---- action row (summary + toggle) ---- */
+.actionrow {
+  flex: 0 0 auto;
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+  flex-wrap: wrap;
+}
+/* local override: the action-row summary is a chip strip, not the global 4-col card grid */
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  grid-template-columns: none;
+}
+.summary .muted {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.actionrow .spacer {
+  flex: 1;
+  min-width: 8px;
+}
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  outline: none;
+}
+.toggle.on {
+  color: var(--text-1);
+}
+.toggle:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-bg);
+  border-radius: 6px;
+}
+
+/* ---- snapshot grid ---- */
+.grid {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 24px 40px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+  gap: 18px;
+  align-content: start;
+}
+.card {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-1);
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.12s,
+    transform 0.12s;
+  display: flex;
+  min-height: 116px;
+}
+.card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+/* colour ribbon down the left edge, status-coded (replaces the mock's image thumbnail) */
+.ribbon {
+  flex: 0 0 4px;
+  width: 4px;
+  background: var(--border-strong);
+}
+.ribbon.status--changed,
+.ribbon.status--review {
+  background: var(--changed);
+}
+.ribbon.status--new {
+  background: var(--new);
+}
+.ribbon.status--removed,
+.ribbon.status--rejected,
+.ribbon.status--error {
+  background: var(--removed);
+}
+.ribbon.status--unchanged,
+.ribbon.status--approved,
+.ribbon.status--passed {
+  background: var(--ok);
+}
+.ribbon.status--pending {
+  background: var(--accent);
+}
+.cardbody {
+  flex: 1;
+  min-width: 0;
+  padding: 13px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cardtop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cardbody .nm {
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cardbody .meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: auto;
+}
+.pct {
+  font-size: 11.5px;
+  flex: 0 0 auto;
+}
+.pct--changed {
+  color: var(--changed);
+}
+.pct--new {
+  color: var(--new);
+}
+.pct--removed {
+  color: var(--removed);
+}
+
+/* skeleton card placeholders */
+.sk-card {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  padding: 0;
+}
+.sk-card .sk {
+  display: block;
+  border-radius: 0;
+}
+
+/* centred empty / error states */
+.centerwrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 24px;
+}
+.centerwrap .btn {
+  text-decoration: none;
+}

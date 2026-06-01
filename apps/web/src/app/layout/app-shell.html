@@ -1,0 +1,151 @@
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <span class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+          <rect x="3" y="3" width="8" height="8" rx="1.5" />
+          <rect x="13" y="3" width="8" height="8" rx="1.5" />
+          <rect x="3" y="13" width="8" height="8" rx="1.5" />
+          <rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor" />
+        </svg>
+      </span>
+      <span class="name">Pixela</span>
+    </div>
+
+    @if (mode() === 'project') {
+      <a class="backlink" [routerLink]="['/']">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Все проекты
+      </a>
+      <div class="proj">
+        <span class="sq"></span>
+        <div class="t">
+          <div class="o">{{ projectName() || 'Проект' }}</div>
+          <div class="p">репозиторий</div>
+        </div>
+        <span class="ch"
+          ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="m6 9 6 6 6-6" /></svg
+        ></span>
+      </div>
+    } @else {
+      <div class="orgsel">
+        <span class="av">AI</span>
+        <div class="t">
+          <div class="o">Acme Inc</div>
+          <div class="p">организация</div>
+        </div>
+        <span class="ch"
+          ><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="m6 9 6 6 6-6" /></svg
+        ></span>
+      </div>
+    }
+
+    <nav class="nav">
+      @for (item of nav(); track item.key) {
+        @if (item.link) {
+          <a [routerLink]="item.link" [class.active]="active() === item.key">
+            <ng-container
+              [ngTemplateOutlet]="navIcon"
+              [ngTemplateOutletContext]="{ $implicit: item.key }"
+            />
+            {{ item.label }}
+            @if (item.count != null) {
+              <span class="ct">{{ item.count }}</span>
+            }
+          </a>
+        } @else {
+          <a
+            [class.active]="active() === item.key"
+            aria-disabled="true"
+            title="Появится в следующей фазе"
+          >
+            <ng-container
+              [ngTemplateOutlet]="navIcon"
+              [ngTemplateOutletContext]="{ $implicit: item.key }"
+            />
+            {{ item.label }}
+          </a>
+        }
+      }
+    </nav>
+
+    <div class="foot">
+      <span class="ava">{{ initials(user()?.name || user()?.email) }}</span>
+      <div style="flex: 1; min-width: 0">
+        <div class="un">{{ user()?.name || 'Пользователь' }}</div>
+        <div class="ue">{{ user()?.email }}</div>
+      </div>
+      <span class="cog" role="button" title="Выйти" (click)="logout()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <path d="m16 17 5-5-5-5M21 12H9" />
+        </svg>
+      </span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="htitle">
+        <h1>{{ title() }}</h1>
+        @if (subtitle()) {
+          <span class="sub">{{ subtitle() }}</span>
+        }
+      </div>
+      <div class="spacer"></div>
+      <ng-content select="[actions]" />
+    </div>
+    <ng-content />
+  </main>
+</div>
+
+<ng-template #navIcon let-key>
+  @switch (key) {
+    @case ('projects') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      </svg>
+    }
+    @case ('members') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    }
+    @case ('activity') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+      </svg>
+    }
+    @case ('builds') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 12h4l3 8 4-16 3 8h4" />
+      </svg>
+    }
+    @case ('snapshots') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-5-5L5 21" />
+      </svg>
+    }
+    @case ('baselines') {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    }
+    @default {
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3" />
+        <path
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+        />
+      </svg>
+    }
+  }
+</ng-template>

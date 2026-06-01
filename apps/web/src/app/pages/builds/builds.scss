@@ -1,0 +1,208 @@
+/* Build feed — page-local chrome ported from docs/design/project/buildlist.html.
+   Author avatar/name and run duration columns are intentionally dropped (no API data),
+   so the row grid is: branch+commit · status · counts · time. */
+
+.list {
+  flex: 1;
+  overflow: auto;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) 168px minmax(0, 1fr) 90px;
+  align-items: center;
+  gap: 16px;
+  padding: 0 26px;
+  height: 62px;
+  border-bottom: 1px solid var(--border-faint);
+  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.1s;
+}
+.row:hover {
+  background: var(--surface-1);
+  text-decoration: none;
+}
+.row--sk {
+  cursor: default;
+}
+
+.branchcell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.branchcell .bn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--text-1);
+  min-width: 0;
+}
+.branchcell .bn svg {
+  width: 13px;
+  height: 13px;
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+.branchcell .bn-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.branchcell .meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.branchcell .meta .hash {
+  font-family: var(--mono);
+  color: var(--text-2);
+  cursor: copy;
+  transition: color 0.12s;
+}
+.branchcell .meta .hash:hover {
+  color: var(--accent-2);
+}
+.branchcell .meta .dotsep {
+  color: var(--text-3);
+}
+.branchcell .meta .cilink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--mono);
+  color: var(--text-2);
+  text-decoration: none;
+}
+.branchcell .meta .cilink:hover {
+  color: var(--accent-2);
+  text-decoration: none;
+}
+.branchcell .meta .cilink svg {
+  width: 11px;
+  height: 11px;
+}
+
+.when {
+  font-size: 12px;
+  color: var(--text-3);
+  font-family: var(--mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.counts-sk {
+  display: flex;
+  gap: 6px;
+}
+
+/* empty / error state (page-local; mirrors the design's .empty block) */
+.empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 40px;
+  text-align: center;
+}
+.empty .ic {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+}
+.empty .ic svg {
+  width: 26px;
+  height: 26px;
+}
+.empty h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.empty p {
+  margin: 0;
+  max-width: 360px;
+  font-size: 13.5px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.empty .cmd {
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text-2);
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.empty .cmd .pr {
+  color: var(--text-3);
+}
+
+/* pagination (ported from ds-components.css .pager — not in the bundled global styles) */
+.pagerbar {
+  display: flex;
+  justify-content: center;
+  padding: 20px 26px 32px;
+}
+.pager {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pager button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-family: var(--font);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
+}
+.pager button svg {
+  width: 15px;
+  height: 15px;
+}
+.pager button:hover:not(.is-disabled):not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text-1);
+  border-color: var(--border-strong);
+}
+.pager button.is-active {
+  background: var(--accent-bg);
+  color: var(--accent-2);
+  border-color: rgba(110, 138, 250, 0.35);
+}
+.pager button.is-disabled,
+.pager button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

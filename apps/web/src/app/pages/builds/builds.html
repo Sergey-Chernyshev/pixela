@@ -1,0 +1,141 @@
+<px-app-shell
+  mode="project"
+  active="builds"
+  title="Сборки"
+  subtitle="Лента прогонов CI"
+  [projectName]="projectName()"
+  [projectId]="projectId()"
+>
+  <div class="list">
+    @if (loading()) {
+      <!-- skeleton-loading -->
+      @for (i of skeletonRows; track i) {
+        <div class="row row--sk">
+          <div class="branchcell">
+            <div class="sk" style="height: 13px; width: 140px"></div>
+            <div class="sk" style="height: 10px; width: 80px"></div>
+          </div>
+          <div class="sk" style="height: 22px; width: 130px; border-radius: 999px"></div>
+          <div class="counts-sk">
+            <div class="sk" style="height: 22px; width: 48px; border-radius: 6px"></div>
+            <div class="sk" style="height: 22px; width: 58px; border-radius: 6px"></div>
+          </div>
+          <div class="sk" style="height: 11px; width: 42px; margin-left: auto"></div>
+        </div>
+      }
+    } @else if (error()) {
+      <div class="empty">
+        <div class="ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path d="M12 9v4M12 17h.01" />
+            <path
+              d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"
+            />
+          </svg>
+        </div>
+        <h2>Не удалось загрузить сборки</h2>
+        <p>Произошла ошибка при обращении к API. Попробуйте обновить страницу позже.</p>
+        <button class="btn" (click)="goTo(page())">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16" />
+          </svg>
+          Обновить
+        </button>
+      </div>
+    } @else if (isEmpty()) {
+      <!-- empty-state -->
+      <div class="empty">
+        <div class="ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path d="M3 12h4l3 8 4-16 3 8h4" />
+          </svg>
+        </div>
+        <h2>Пока нет ни одной сборки</h2>
+        <p>
+          Подключите CI, чтобы Pixela начал получать снимки Playwright и сравнивать их с базовой
+          линией после каждого прогона.
+        </p>
+        <div class="cmd"><span class="pr">$ </span>npx pixela upload ./test-results</div>
+      </div>
+    } @else {
+      @for (build of items(); track build.id) {
+        <a class="row" [routerLink]="['/builds', build.id]">
+          <div class="branchcell">
+            <div class="bn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <path d="M6 9v6" />
+                <path d="M18 6a9 9 0 0 1-9 9" />
+                <circle cx="18" cy="6" r="3" />
+              </svg>
+              <span class="bn-name">{{ build.branch }}</span>
+            </div>
+            <div class="meta">
+              <span
+                class="hash"
+                role="button"
+                title="Скопировать"
+                (click)="copyHash($event, build.commitSha)"
+              >
+                {{ copied() === build.commitSha ? 'скопировано' : shortSha(build.commitSha) }}
+              </span>
+              @if (build.ciJobUrl) {
+                <span class="dotsep">·</span>
+                <a
+                  class="cilink"
+                  [href]="build.ciJobUrl"
+                  target="_blank"
+                  rel="noreferrer"
+                  (click)="$event.stopPropagation()"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <path d="M15 3h6v6M10 14 21 3" />
+                  </svg>
+                  CI
+                </a>
+              }
+            </div>
+          </div>
+
+          <px-status [status]="build.status" />
+
+          <px-count-chips [counts]="build.counts" />
+
+          <div class="when">{{ relTime(build.createdAt) }}</div>
+        </a>
+      }
+
+      @if (totalPages() > 1) {
+        <div class="pagerbar">
+          <div class="pager">
+            <button
+              [class.is-disabled]="page() <= 1"
+              [disabled]="page() <= 1"
+              (click)="goTo(page() - 1)"
+              aria-label="Назад"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+            </button>
+            @for (p of pages(); track p) {
+              <button [class.is-active]="p === page()" (click)="goTo(p)">{{ p }}</button>
+            }
+            <button
+              [class.is-disabled]="page() >= totalPages()"
+              [disabled]="page() >= totalPages()"
+              (click)="goTo(page() + 1)"
+              aria-label="Вперёд"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m9 18 6-6-6-6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      }
+    }
+  </div>
+</px-app-shell>

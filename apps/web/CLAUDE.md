@@ -31,8 +31,19 @@ Angular 21 (standalone, signals, OnPush) · Angular CDK · SCSS · pnpm · Node 
 
 ## Current State
 
-- [x] **Фаза 0: каркас фронта** ✅ — Angular standalone shell (header + lazy-routed Home), `ng build` зелёный.
-- [ ] Фаза 4: dashboard shell + review UI (Agent 06/07) — основная работа фронта.
+- [x] **Фаза 0: каркас фронта** ✅ — Angular standalone shell, `ng build` зелёный.
+- [x] **Фаза 4: dashboard + review UI** ✅ — реализован по дизайн-бандлу (`docs/design/`, тёмная тема
+  `#0E0E10`/индиго `#6E8AFA`/Geist), русский UI. Глобальная дизайн-система портирована в `src/styles.scss`
+  (токены + компоненты + shell). Компоненты-раньше-страниц: `shared/` (`px-status`, `px-count-chips`),
+  `layout/app-shell` (sidebar org/project + topbar). Spine `core/`: типобезопасный `ApiService` на
+  `@pixela/shared`, `SessionService` (signal-сессия), `authGuard`/`guestGuard`, credentials-interceptor
+  (cookie). 5 экранов на реальном API: **login** (email+пароль), **projects** (обзор орг.), **builds**
+  (лента CI + пагинация), **build-detail** (грид снимков), **review** (центр: 4 режима side/overlay/onion/
+  curtain, **синхро-зум F-26**, клавиши A/R/1-4, presigned-картинки, история). Dev-прокси `/api`→:3000.
+  `ng build` зелёный. **Честно к API**: моки дизайна без бэкенда (health/sparkline/аватары/миниатюры
+  build-detail/duration) — опущены, не фабрикуются. approve/reject — заглушки до Фазы 5.
+  Не реализованы экраны без бэкенда (members/settings/activity/snapshots/baselines/testtree/testhistory/
+  reviewqueue) — пункты навигации видимы, но инертны до своих фаз.
 
 ## Как запустить (из корня монорепо)
 

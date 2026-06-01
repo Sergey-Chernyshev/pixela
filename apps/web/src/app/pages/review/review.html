@@ -1,0 +1,417 @@
+<div class="app">
+  <!-- ============ APP BAR ============ -->
+  <header class="appbar">
+    <div class="crumb">
+      <button class="back iconbtn" type="button" title="Назад (Esc)" (click)="back()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 18l-6-6 6-6" />
+        </svg>
+      </button>
+      @if (loading()) {
+        <span class="sk" style="width: 220px; height: 14px"></span>
+      } @else if (data()) {
+        <span class="file mono">{{ data()!.name }}</span>
+        <span class="sep">·</span>
+        <span class="dim">{{ data()!.browser }}</span>
+        <span class="sep">·</span>
+        <span class="dim mono">{{ data()!.viewport }}</span>
+      }
+    </div>
+    <div class="spacer"></div>
+    @if (note()) {
+      <div class="note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v5M12 16h.01" />
+        </svg>
+        {{ note() }}
+      </div>
+    }
+  </header>
+
+  <!-- ============ TOOLBAR ============ -->
+  <div class="toolbar">
+    <div class="seg" role="tablist">
+      <button
+        type="button"
+        [attr.aria-pressed]="mode() === 'side'"
+        (click)="setMode('side')"
+        title="Рядом (1)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="7" height="16" rx="1" />
+          <rect x="14" y="4" width="7" height="16" rx="1" />
+        </svg>
+        Рядом <kbd>1</kbd>
+      </button>
+      <button
+        type="button"
+        [attr.aria-pressed]="mode() === 'overlay'"
+        (click)="setMode('overlay')"
+        title="Наложение (2)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 3v18" />
+          <path d="M12 3a9 9 0 0 0 0 18" />
+          <path d="M12 3a9 9 0 0 1 0 18" fill="currentColor" fill-opacity=".25" />
+        </svg>
+        Наложение <kbd>2</kbd>
+      </button>
+      <button
+        type="button"
+        [attr.aria-pressed]="mode() === 'onion'"
+        (click)="setMode('onion')"
+        title="Onion (3)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="9" cy="12" r="6" />
+          <circle cx="15" cy="12" r="6" />
+        </svg>
+        Onion <kbd>3</kbd>
+      </button>
+      <button
+        type="button"
+        [attr.aria-pressed]="mode() === 'curtain'"
+        (click)="setMode('curtain')"
+        title="Шторка (4)"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="4" width="18" height="16" rx="1" />
+          <path d="M12 4v16" />
+        </svg>
+        Шторка <kbd>4</kbd>
+      </button>
+    </div>
+
+    <button
+      class="iconbtn diffbtn"
+      type="button"
+      [attr.aria-pressed]="showDiff()"
+      [disabled]="!hasDiff()"
+      (click)="toggleDiff()"
+      title="Подсветка различий"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 3v18" />
+        <path d="M12 3a9 9 0 0 0 0 18" />
+        <path d="M12 3a9 9 0 0 1 0 18" fill="currentColor" fill-opacity=".25" />
+      </svg>
+      Различия
+    </button>
+
+    <div class="spacer"></div>
+
+    <div class="zoomgrp">
+      <button class="iconbtn" type="button" (click)="zoomOut()" title="Уменьшить">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12h14" />
+        </svg>
+      </button>
+      <span class="zoomlabel mono">{{ zoomLabel() }}</span>
+      <button class="iconbtn" type="button" (click)="zoomIn()" title="Увеличить">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
+    </div>
+    <button class="btn btnsm" type="button" (click)="fit()">По ширине</button>
+    <button class="btn btnsm" type="button" (click)="oneToOne()">1:1</button>
+  </div>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <section class="stage" #stage (wheel)="onWheel($event)">
+      @if (loading()) {
+        <div class="stage-loading">
+          <div class="sk" style="width: 42%; height: 70%; border-radius: 10px"></div>
+          <div class="sk" style="width: 42%; height: 70%; border-radius: 10px"></div>
+        </div>
+      } @else if (!data()) {
+        <div class="empty-state">
+          <span class="ei">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 9v4M12 17h.01" />
+              <path
+                d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"
+              />
+            </svg>
+          </span>
+          <h3>Снимок недоступен</h3>
+          <p>{{ error() ?? 'Не удалось загрузить снимок для сравнения.' }}</p>
+          <button class="btn" type="button" (click)="back()">Назад</button>
+        </div>
+      } @else {
+        @switch (mode()) {
+          <!-- ----- SIDE BY SIDE ----- -->
+          @case ('side') {
+            <div class="twoup">
+              <div class="pane">
+                <div class="pane-head">
+                  <span class="lbl"><span class="bullet base"></span>Эталон</span>
+                </div>
+                <div class="pane-scroll">
+                  <div class="pane-pad">
+                    @if (hasBaseline()) {
+                      <div class="imgwrap" [style.width.px]="960 * scale()">
+                        <img class="screenshot" [src]="images()!.baseline" alt="Эталон" />
+                      </div>
+                    } @else {
+                      <div class="placeholder" [style.width.px]="960 * scale()">
+                        Нет базовой линии
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+              <div class="vline"></div>
+              <div class="pane">
+                <div class="pane-head">
+                  <span class="lbl"><span class="bullet new"></span>Новый</span>
+                </div>
+                <div class="pane-scroll">
+                  <div class="pane-pad">
+                    @if (hasNew()) {
+                      <div
+                        class="imgwrap"
+                        [class.show-diff]="showDiff() && hasDiff()"
+                        [style.width.px]="960 * scale()"
+                      >
+                        <img class="screenshot" [src]="images()!.new" alt="Новый" />
+                        @if (hasDiff()) {
+                          <div class="diffov"><img [src]="images()!.diff" alt="Различия" /></div>
+                        }
+                      </div>
+                    } @else {
+                      <div class="placeholder" [style.width.px]="960 * scale()">
+                        Нет нового снимка
+                      </div>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- ----- OVERLAY (diff composited over new) ----- -->
+          @case ('overlay') {
+            <div class="single-scroll">
+              <div class="single-pad">
+                @if (hasNew()) {
+                  <div class="imgwrap show-diff" [style.width.px]="960 * scale()">
+                    <img class="screenshot" [src]="images()!.new" alt="Новый" />
+                    @if (hasDiff()) {
+                      <div class="diffov"><img [src]="images()!.diff" alt="Различия" /></div>
+                    }
+                  </div>
+                } @else if (hasBaseline()) {
+                  <div class="imgwrap" [style.width.px]="960 * scale()">
+                    <img class="screenshot" [src]="images()!.baseline" alt="Эталон" />
+                  </div>
+                } @else {
+                  <div class="placeholder" [style.width.px]="960 * scale()">
+                    Нет снимков для наложения
+                  </div>
+                }
+              </div>
+            </div>
+            @if (!hasDiff()) {
+              <div class="floatnote">Diff-слой недоступен для этого снимка</div>
+            }
+          }
+
+          <!-- ----- ONION (opacity cross-fade) ----- -->
+          @case ('onion') {
+            <div class="single-scroll">
+              <div class="single-pad">
+                @if (hasBaseline() && hasNew()) {
+                  <div
+                    class="onion-stack"
+                    [class.show-diff]="showDiff() && hasDiff()"
+                    [style.width.px]="960 * scale()"
+                  >
+                    <img class="screenshot" [src]="images()!.baseline" alt="Эталон" />
+                    <div class="top" [style.opacity]="onion()">
+                      <img [src]="images()!.new" alt="Новый" />
+                    </div>
+                    @if (hasDiff()) {
+                      <div class="diffov"><img [src]="images()!.diff" alt="Различия" /></div>
+                    }
+                  </div>
+                } @else if (hasNew()) {
+                  <div class="imgwrap" [style.width.px]="960 * scale()">
+                    <img class="screenshot" [src]="images()!.new" alt="Новый" />
+                  </div>
+                } @else {
+                  <div class="placeholder" [style.width.px]="960 * scale()">
+                    Нет базовой линии для onion
+                  </div>
+                }
+              </div>
+            </div>
+            @if (hasBaseline() && hasNew()) {
+              <div class="floatctl">
+                <span class="ttl">Эталон</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  [value]="onion() * 100"
+                  [style.--fill.%]="onion() * 100"
+                  (input)="onOnion($event)"
+                />
+                <span class="ttl new">Новый</span>
+                <span class="val mono">{{ onion() * 100 | number: '1.0-0' }}%</span>
+              </div>
+            }
+          }
+
+          <!-- ----- CURTAIN (draggable reveal) ----- -->
+          @case ('curtain') {
+            <div class="single-scroll">
+              <div class="single-pad">
+                @if (hasBaseline() && hasNew()) {
+                  <div
+                    class="curtain-stack"
+                    #curtainStack
+                    [class.show-diff]="showDiff() && hasDiff()"
+                    [style.width.px]="960 * scale()"
+                  >
+                    <img class="screenshot" [src]="images()!.baseline" alt="Эталон" />
+                    <div class="curtain-lbl base">Эталон</div>
+                    <div class="top" [style.clip-path]="'inset(0 0 0 ' + curtain() * 100 + '%)'">
+                      <img [src]="images()!.new" alt="Новый" />
+                    </div>
+                    <div
+                      class="curtain-lbl new"
+                      [style.left]="'calc(' + curtain() * 100 + '% + 10px)'"
+                    >
+                      Новый
+                    </div>
+                    @if (hasDiff()) {
+                      <div class="diffov"><img [src]="images()!.diff" alt="Различия" /></div>
+                    }
+                    <div
+                      class="handle"
+                      [style.left.%]="curtain() * 100"
+                      (pointerdown)="startCurtain($event)"
+                    >
+                      <div class="grip">
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2.2"
+                        >
+                          <path d="M9 6 4 12l5 6M15 6l5 6-5 6" />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="placeholder" [style.width.px]="960 * scale()">
+                    Шторка требует оба снимка
+                  </div>
+                }
+              </div>
+            </div>
+          }
+        }
+      }
+    </section>
+
+    <!-- ============ META PANEL ============ -->
+    <aside class="meta">
+      @if (loading()) {
+        <div class="meta-sec">
+          <h3>Снимок</h3>
+          <div class="sk" style="width: 60%; height: 22px; margin-bottom: 14px"></div>
+          <div class="sk" style="width: 100%; height: 13px; margin-bottom: 8px"></div>
+          <div class="sk" style="width: 80%; height: 13px"></div>
+        </div>
+        <div class="meta-sec">
+          <h3>Различия</h3>
+          <div class="sk" style="width: 50%; height: 28px; margin-bottom: 12px"></div>
+          <div class="sk" style="width: 100%; height: 6px"></div>
+        </div>
+      } @else if (data()) {
+        <div class="meta-sec">
+          <h3>Снимок</h3>
+          <div class="statusrow">
+            <px-status [status]="data()!.status" />
+          </div>
+          <div class="kv">
+            <span class="k">Имя</span><span class="v mono">{{ data()!.name }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">Браузер</span><span class="v">{{ data()!.browser }}</span>
+          </div>
+          <div class="kv">
+            <span class="k">Вьюпорт</span><span class="v mono">{{ data()!.viewport }}</span>
+          </div>
+        </div>
+
+        <div class="meta-sec">
+          <h3>Различия</h3>
+          @if (ratioPct() !== null) {
+            <div class="ratio-row">
+              <span class="ratio-big mono">{{ ratioPct() }}<span class="pct">%</span></span>
+              <div class="ratio-bar"><i [style.width.%]="ratioBar()"></i></div>
+            </div>
+          } @else {
+            <div class="kv"><span class="k">Доля различий</span><span class="v">—</span></div>
+          }
+          @if (data()!.diffPixels != null) {
+            <div class="kv">
+              <span class="k">Изменённых пикселей</span>
+              <span class="v mono">{{ data()!.diffPixels | number: '1.0-0' }} px</span>
+            </div>
+          }
+        </div>
+
+        <div class="meta-sec grow">
+          <h3>История</h3>
+          @if (history().length) {
+            <div class="hist">
+              @for (h of history(); track $index) {
+                <div class="hist-item">
+                  <span class="ava ava--{{ actionMod(h.action) }}">{{ initials(h.user) }}</span>
+                  <div class="hi-body">
+                    <div class="who mono">{{ h.user }}</div>
+                    <div class="what">{{ actionLabel(h.action) }}</div>
+                  </div>
+                  <span class="when mono" [title]="h.at">{{ relative(h.at) }}</span>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="hist-empty">Пока нет действий по этому снимку.</p>
+          }
+        </div>
+      }
+    </aside>
+  </div>
+
+  <!-- ============ ACTION BAR ============ -->
+  <footer class="actionbar">
+    <div class="hints">
+      <span class="h"><kbd>A</kbd> принять</span>
+      <span class="h"><kbd>R</kbd> отклонить</span>
+      <span class="h"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> режимы</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn--danger bigbtn" type="button" (click)="reject()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+        <path d="M18 6 6 18M6 6l12 12" />
+      </svg>
+      Отклонить <kbd>R</kbd>
+    </button>
+    <button class="btn btn--ok bigbtn" type="button" (click)="approve()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+      Принять <kbd>A</kbd>
+    </button>
+  </footer>
+</div>
