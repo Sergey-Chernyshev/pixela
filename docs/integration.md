@@ -1,0 +1,324 @@
+# Интеграция Pixela с репозиториями (где прогоняются тесты)
+
+> Как репозиторий с Playwright-тестами подключается к Pixela: полный поток данных, что и куда
+> отправляется, как резолвится baseline, что происходит при approve, и **что из этого уже работает,
+> а что — в Фазе 5**. Технические идентификаторы (эндпоинты, env, поля) — на английском; объяснения — на русском.
+>
+> Связанные документы: архитектура бэкенда — [`architecture/go-backend.md`](architecture/go-backend.md);
+> инварианты продукта — корневой [`../CLAUDE.md`](../CLAUDE.md); reporter —
+> [`../packages/sdk/README.md`](../packages/sdk/README.md); контракт API — `spec/specs/04-api-contract.md`.
+
+---
+
+## 1. В двух словах
+
+У тебя есть **обычный репозиторий с Playwright-тестами** (`expect(page).toHaveScreenshot()`). Pixela —
+**self-hosted сервис ревью визуальных регрессий** поверх этих тестов. Интеграция = добавить один
+custom-reporter в `playwright.config.ts` и прогонять тесты в CI как обычно. Reporter заливает скриншоты
+в Pixela, Pixela показывает дифф и даёт workflow approve/reject, а «approve» (Mode A) готовит коммит
+обновлённого baseline-PNG **обратно в твой репозиторий**.
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│  ТВОЙ РЕПОЗИТОРИЙ (например acme/storefront)                                            │
+│                                                                                        │
+│   tests/**.spec.ts            __screenshots__/**.png   ← baseline'ы живут в git (Mode A)│
+│        │  expect(...).toHaveScreenshot()                     ▲                          │
+│        ▼                                                     │ (approve → git commit/MR)│
+│   Playwright run (CI: GitLab)                                │                          │
+│        │  attachments: actual / expected / diff             │                          │
+│        ▼                                                     │                          │
+│   @pixela/playwright-reporter ───────────► POST /api/v1/...  │                          │
+└────────────────────────────────────────────────┼───────────┼──────────────────────────┘
+                                                  │           │
+                              HTTPS, Authorization: ApiKey <key>
+                                                  ▼           │
+┌──────────────────────────────────────────────────────────────────────────────────────┐
+│  PIXELA (self-hosted)                                                                   │
+│                                                                                        │
+│   serve  (ingestion API)  →  Postgres (метаданные)  →  River queue                     │
+│        │                         ▲                          │                          │
+│        ▼                         │                          ▼                          │
+│   MinIO/S3 (PNG по sha256)       │                     worker (diff: pixelmatch)        │
+│                                  │                          │                          │
+│   web dashboard (Angular) ◄──────┴── presigned URL ◄────────┘                          │
+│        │  review: 2-up / overlay / onion / шторка, approve / reject                    │
+│        └──────────────────────────────────────────────────► GitLab MR status (Фаза 5) │
+└──────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Модель: Mode A (git-native baseline)
+
+**Эталон (baseline) живёт в твоём git-репозитории** — ровно там, где его хранит Playwright
+(`snapshotPathTemplate`, по умолчанию рядом с тестом). Pixela — **слой ревью**, а не источник правды
+о baseline. Это инвариант #1 продукта: Pixela **не** делает серверный merge-base resolution и **не**
+владеет эталоном.
+
+Что это значит на практике:
+
+- **Сравнение «прошёл/не прошёл» делает сам Playwright** локально: `toHaveScreenshot` сверяет свежий
+  скриншот с закоммиченным baseline-PNG и падает, если они разошлись.
+- **Pixela получает результат на ревью**: reporter заливает _новый_ скриншот, _эталонный_ скриншот и
+  (опционально) серверный дифф-оверлей. В дашборде ты решаешь — это баг или ожидаемое изменение.
+- **Approve = подготовка git-коммита** обновлённого baseline-PNG в твоём репозитории (через ветку/MR),
+  а не запись «нового эталона» в БД Pixela. Смержил MR → следующий прогон зелёный.
+
+Альтернатива (Mode B, «Pixela владеет baseline») в v1 **не** реализуется.
+
+---
+
+## 3. Действующие лица
+
+| Компонент | Где | Роль |
+|---|---|---|
+| Playwright + тесты | твой репо | прогоняет `toHaveScreenshot`, хранит baseline-PNG в git |
+| `@pixela/playwright-reporter` | твой репо (devDep) | собирает скриншоты, заливает в Pixela по API-ключу |
+| `pixela serve` | Pixela | ingestion API (приём сборок/снимков/картинок), dashboard API |
+| `pixela worker` | Pixela | async diff (pixelmatch), финализация сборки |
+| Postgres | Pixela | метаданные: проекты, сборки, снимки, baseline'ы, события |
+| MinIO/S3 | Pixela | PNG, content-addressable по sha256 (дедуп) |
+| Web dashboard | Pixela | ревью диффов, approve/reject, история |
+| GitLab | внешний | источник CI-метаданных; адресат статуса MR (Фаза 5) |
+
+---
+
+## 4. Разовая настройка
+
+### 4.1. На стороне Pixela (один раз на проект)
+
+```bash
+# поднять инфру + сервисы (детали — в корневом README)
+pnpm dev:infra                 # postgres + redis + minio
+pnpm migrate                   # схема + River-таблицы
+pixela serve                   # ingestion + dashboard API на :3000
+pixela worker                  # diff-воркер
+
+# завести проект-репозиторий и выпустить API-ключ (показывается ОДИН раз)
+pixela project create "Storefront" acme-storefront
+pixela apikey create acme-storefront ci
+#  → pxl_live_xxxxxxxxxxxxxxxx   (положить в CI-секреты)
+```
+
+Один **проект Pixela = один репозиторий**. Все данные изолированы по проекту: каждый запрос
+аутентифицируется ключом проекта, данные проектов не пересекаются (инвариант #5).
+
+### 4.2. В репозитории с тестами
+
+```bash
+pnpm add -D @pixela/playwright-reporter      # @playwright/test — peer-зависимость
+```
+
+> ⚠️ Сейчас пакет `private` и **не опубликован в npm-реестр** (см. §9). До публикации подключается
+> локальным `npm pack` / `file:`-зависимостью / `pnpm link`. После публикации команда выше заработает как есть.
+
+`playwright.config.ts`:
+
+```ts
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  // baseline-снимки лежат в репозитории (Mode A, git-native)
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}-{projectName}{ext}',
+
+  reporter: [
+    ['list'],
+    ['@pixela/playwright-reporter', {
+      // apiUrl / projectKey лучше брать из env (ключ — не в конфиг!)
+      // softMode: true (по умолчанию) — сбои API только варнят, тесты не валят
+      // uploadBaseline: true (по умолчанию) — Mode A: грузить и эталон для ревью
+    }],
+  ],
+});
+```
+
+Конфиг reporter'а (опция → env → CI-автодетект → git → дефолт):
+
+| Опция | Env | По умолчанию |
+|---|---|---|
+| `apiUrl` | `PIXELA_URL` | — (обязателен) |
+| `projectKey` | `PIXELA_API_KEY` | — (обязателен) |
+| `project` | `PIXELA_PROJECT` | метаданные, опционально |
+| `branch` | `CI_COMMIT_REF_NAME` | `git rev-parse --abbrev-ref HEAD` |
+| `commit` | `CI_COMMIT_SHA` | `git rev-parse HEAD` |
+| `ciBuildId` | `CI_PIPELINE_ID` | уникальный локальный id |
+| `ciJobUrl` | `CI_JOB_URL` | — |
+| `mrIid` | `CI_MERGE_REQUEST_IID` | — |
+| `parallelTotal` | `CI_NODE_TOTAL` | `1` |
+| `softMode` | — | `true` |
+| `uploadBaseline` | — | `true` |
+| `ignore` | — | `[]` (подстроки имён снимков для пропуска) |
+
+### 4.3. В CI (`.gitlab-ci.yml`)
+
+```yaml
+visual-tests:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.49.0
+  variables:
+    PIXELA_URL: "https://pixela.internal"     # адрес твоего self-hosted Pixela
+  script:
+    - pnpm install
+    - pnpm exec playwright test
+  # PIXELA_API_KEY — в защищённых CI-переменных (Settings → CI/CD → Variables), не в .yml
+```
+
+Бранч/коммит/pipeline/MR/шарды Pixela **подхватывает из GitLab-CI окружения автоматически** —
+руками прокидывать не нужно.
+
+---
+
+## 5. Что происходит при каждом прогоне
+
+### 5.1. Сбор снимков (reporter, фаза прогона)
+
+Reporter слушает Playwright и на `onTestEnd` забирает аттачменты `toHaveScreenshot`:
+
+- Playwright по умолчанию прикладывает `expected` / `actual` / `diff` **только когда снимок разошёлся**
+  (или на первом прогоне, когда baseline ещё не зафиксирован). Совпавшие снимки аттачментов не дают.
+- Reporter мёржит `actual` (новый) + `expected` (эталон) одного снимка по ключу
+  `name :: browser :: viewport`, толерантен к ретраям.
+
+`name` снимка — стабильный: путь из заголовков теста + проект Playwright + вьюпорт.
+
+### 5.2. Контекст сборки (CI-автодетект)
+
+Перед заливкой reporter резолвит `BuildContext`: `branch`, `commitSha`, `ciBuildId`
+(ключ агрегации шардов), `ciJobUrl`, `mrIid`, `parallelTotal`. Приоритет: опции → GitLab-env → git → дефолт.
+
+### 5.3. Загрузка в Pixela (`onEnd`, двухшаговый CAS-аплоад)
+
+Все вызовы идут с заголовком `Authorization: ApiKey <key>` и проходят изоляцию по проекту.
+
+1. **`POST /api/v1/builds`** — создать (или присоединиться к) сборку. Тело: `branch`, `commitSha`,
+   `ciBuildId`, `ciJobUrl`, `mrIid`, `parallelTotal`. Сборка идемпотентна по `ciBuildId` — все шарды
+   одного пайплайна сходятся в **одну** сборку.
+2. На каждый снимок — **`POST /api/v1/builds/{buildId}/snapshots`**: декларация по хэшу
+   (`name`, `browser`, `viewport`, `imageSha256`, `width`, `height`, `byteSize`). Ответ говорит,
+   нужно ли заливать байты (`needUpload`) — если такой sha256 уже в сторадже, **дедуп**, заливать не надо.
+3. Если нужно — **`PUT /api/v1/images/{sha256}`** с PNG-байтами. Сервер проверяет, что
+   реальный sha256 совпадает с заявленным (`SNAPSHOT_HASH_MISMATCH` иначе), валидирует PNG (magic/размер).
+   Хранение — content-addressable: один и тот же скриншот в N снимках = один объект в MinIO.
+4. (Mode A) то же для эталонного PNG — best-effort: если упало, прогон не валится.
+
+### 5.4. Финализация
+
+**`PATCH /api/v1/builds/{buildId}`** с `{ "status": "FINALIZE" }` — фиксирует, что все снимки залиты:
+
+- вычисляет **REMOVED** (baseline'ы, для которых в этой сборке нет снимка),
+- переводит сборку в `COMPARING`,
+- **транзакционно** ставит diff-задачи в очередь (River) — стейт и enqueue коммитятся вместе.
+
+> Ingestion — **stateless**: только принимает и кладёт в очередь. Никакого синхронного diff в HTTP-запросе
+> (инвариант #3).
+
+### 5.5. Async diff (worker)
+
+`pixela worker` берёт задачу на снимок и:
+
+1. **Резолвит baseline строго по ветке** — `GetBaselineForKey(project, branch, name, browser, viewport)`.
+   **Никакого merge-base** (инвариант #1).
+2. Нет baseline → снимок **NEW**, diff не нужен.
+3. Есть baseline → скачивает оба PNG, декодирует, гоняет `pixelmatch`, классифицирует:
+   **UNCHANGED** (≤ порога) / **CHANGED** (выше). На CHANGED — кодирует diff-PNG, content-address по
+   _декодированным_ пикселям (детерминизм, тег `pixela-diff/v1`), кладёт в MinIO.
+4. Битый PNG → снимок **ERROR** (изоляция: одна плохая картинка не валит остальную сборку).
+5. Когда обработан последний снимок — транзакционно ставится `FinalizeBuildJob`, который пересчитывает
+   итог сборки: **PASSED** (всё чисто) / **REVIEW_REQUIRED** (есть изменения).
+
+### 5.6. Review в дашборде
+
+Сборки `REVIEW_REQUIRED` ждут человека. В review-воркспейсе (presigned-URL картинок из MinIO):
+**рядом / наложение / onion / шторка**, синхронный зум (F-26), история по снимку, клавиши A/R.
+
+### 5.7. Approve → git-native + статус в GitLab MR (intended, Фаза 5)
+
+«Approve» в Mode A — это **подготовка коммита обновлённого baseline-PNG в твой репозиторий**:
+
+1. approve снимка(ов) → Pixela берёт _новый_ PNG как новый эталон;
+2. готовит ветку/MR в твоём репо, заменяющий старый baseline-файл на новый (по пути Playwright);
+3. ты мержишь MR → следующий прогон зелёный.
+
+Параллельно Pixela репортит **статус в GitLab MR** (по `mrIid`): «N снимков ждут ревью» / «всё approved».
+«Reject» помечает изменение как нежелательное (baseline не трогается, тест остаётся красным).
+
+---
+
+## 6. Шардинг / параллельные джобы
+
+Большие сьюты гоняются шардами (`playwright test --shard=i/N`, GitLab `parallel:`). Все шарды одного
+пайплайна имеют общий `CI_PIPELINE_ID` → reporter шлёт один и тот же `ciBuildId` → Pixela **агрегирует их
+в одну сборку** (идемпотентный create + `parallelTotal`). Финализация ждёт все шарды.
+
+---
+
+## 7. Аутентификация и изоляция
+
+- Каждый прогон аутентифицируется **API-ключом проекта** (`Authorization: ApiKey pxl_...`). Ключ хранится
+  как HMAC-хэш (не в открытом виде); показывается один раз при создании.
+- Все ingestion-операции жёстко привязаны к проекту ключа — снимок нельзя залить в чужой проект (403).
+- Dashboard — отдельная аутентификация: server-side сессии в Redis (cookie `pixela_session`), доступ к
+  данным проекта только у его участников (membership). Reporter сессии **не** использует — только API-ключ.
+
+---
+
+## 8. Жизненный цикл одного baseline
+
+| Шаг | В репозитории | В Pixela | Статус снимка |
+|---|---|---|---|
+| Первый прогон нового снимка | baseline-PNG ещё не закоммичен → Playwright создаёт actual | baseline не зарегистрирован | **NEW** |
+| Approve первого | коммит нового baseline-PNG в репо (MR) | регистрируется baseline | — |
+| Прогон без изменений | actual == baseline → Playwright не аттачит | (снимок не приходит / UNCHANGED) | **UNCHANGED** |
+| Прогон с изменением | actual != baseline → Playwright падает, аттачит | diff-воркер: **CHANGED** + diff-оверлей | **CHANGED** |
+| Approve изменения | коммит обновлённого baseline-PNG (MR) | baseline сдвигается на новый | — |
+| Reject изменения | baseline не трогается | помечено rejected, тест остаётся красным | **REJECTED** |
+| Снимок удалён из тестов | нет actual в сборке | finalize: **REMOVED** | **REMOVED** |
+
+---
+
+## 9. ⚠️ Что работает СЕГОДНЯ vs что в Фазе 5
+
+Честно, по состоянию кода (на момент написания):
+
+| Возможность | Статус |
+|---|---|
+| Reporter: сбор скриншотов, CI-автодетект, шардинг, soft-mode, дедуп-аплоад | ✅ готово |
+| Ingestion: create/declare/upload/finalize, изоляция по ключу, REMOVED, enqueue | ✅ готово |
+| Async diff: pixelmatch, классификация UNCHANGED/CHANGED/NEW/ERROR, diff-PNG, детерминизм | ✅ готово |
+| Dashboard: проекты/сборки/детали/review (4 режима, синхро-зум), members/baselines/activity | ✅ готово |
+| **Регистрация baseline в Pixela** (`baselines` пишется в проде) | ❌ **нет** — пишут только тесты |
+| **Approve / Reject ручки** в бэке | ❌ **нет** |
+| **Approve → git-коммит/MR baseline-PNG** (суть Mode A) | ❌ **нет** (Фаза 5) |
+| **Статус в GitLab MR** | ❌ **нет** (Фаза 5) |
+
+**Практическое следствие.** Подключить reporter в реальный проект и увидеть, как сборки/снимки/картинки
+доезжают в дашборд — **можно уже сейчас**. Но регрессионная петля **не замкнута**: т.к. таблица
+`baselines` в проде ничем не наполняется, diff-воркеру не с чем сравнивать → **каждый снимок становится
+NEW**, «CHANGED» с серверным diff-оверлеем не появляется, а approve/reject — заглушки. То есть сегодня это
+**«ingestion + просмотр»**, ещё не **«поймать и заревьюить регрессию»**.
+
+---
+
+## 10. Минимальный путь до «реально юзабельно»
+
+Два варианта замкнуть петлю (можно делать A → потом B):
+
+- **A. Интерим — авто-baseline на дефолтной ветке.** Прогон на `main` регистрирует baseline'ы в Pixela;
+  на фиче-ветках diff-воркер честно ловит **CHANGED** и рисует оверлей. Замыкает регрессию **без** approve
+  и git-flow — быстрый способ начать пользоваться на реальном проекте. (~полдня)
+- **B. Полноценно — Фаза 5.** Ручки approve/reject + запись baseline + Mode A подготовка коммита/MR в репо
+  + статус в GitLab MR + проводка кнопок в review. Это и есть настоящий git-native workflow.
+
+---
+
+## 11. Чек-лист интеграции (когда петля будет замкнута)
+
+1. Поднять Pixela: `dev:infra` → `migrate` → `serve` + `worker`.
+2. `pixela project create` + `pixela apikey create` → положить ключ в CI-секреты.
+3. В репо: `add -D @pixela/playwright-reporter`, добавить reporter в `playwright.config.ts`,
+   убедиться что baseline-PNG коммитятся (Mode A, `snapshotPathTemplate`).
+4. В CI: задать `PIXELA_URL` (env) и `PIXELA_API_KEY` (секрет), гонять `playwright test` как обычно.
+5. Первый прогон на `main` → зафиксировать baseline'ы (авто или approve).
+6. На фиче-ветке/MR → дифф приезжает в дашборд → review → approve (коммит baseline в репо) / reject.
+7. Смержить approve-MR → следующий прогон зелёный.
