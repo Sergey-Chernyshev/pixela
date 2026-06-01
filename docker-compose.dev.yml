@@ -1,6 +1,6 @@
 # Dev infrastructure only (postgres + redis + minio).
-# The API/worker run from the host with hot-reload (`pnpm dev:api`).
-# Mirrors docs/spec/infra/docker-compose.md.
+# The Go API/worker run from the host with hot-reload (`task -d apps/api dev`).
+# Mirrors docs/spec/infra/docker-compose.md and docs/architecture/go-backend.md.
 
 services:
   postgres:
@@ -21,6 +21,8 @@ services:
       timeout: 3s
       retries: 10
 
+  # Redis is for dashboard SESSIONS ONLY (decision B-03 / go-backend.md §1.1).
+  # The job queue moved to Postgres (River) — Redis is out of the data/queue path.
   redis:
     image: redis:7
     ports:
@@ -47,6 +49,43 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # ── Prod-parity reference (NOT started in dev) ───────────────────────────────
+  # In dev the API/worker run from the host. In prod the SAME image runs in two
+  # modes, selected by `command:` (ENTRYPOINT is the binary — see apps/api/Dockerfile).
+  # A one-shot `migrate` runs Atlas migrations before `serve`/`worker` come up.
+  # Uncomment + point at a built/pushed image to bring the whole stack up locally.
+  #
+  # api:
+  #   image: pixela:latest          # build: { context: ./apps/api }
+  #   command: ["serve"]            # → pixela serve  (chi + Huma HTTP API)
+  #   environment:
+  #     DATABASE_URL: postgresql://pixela:pixela@postgres:5432/pixela
+  #     REDIS_URL: redis://redis:6379          # sessions only
+  #     S3_ENDPOINT: http://minio:9000
+  #   ports:
+  #     - '${PIXELA_API_PORT:-3000}:3000'
+  #   depends_on:
+  #     postgres: { condition: service_healthy }
+  #     redis: { condition: service_healthy }
+  #     minio: { condition: service_healthy }
+  #   healthcheck:
+  #     test: ['CMD', '/pixela', 'healthcheck']   # or wire an external probe to /readyz
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 5
+  #
+  # worker:
+  #   image: pixela:latest
+  #   command: ["worker"]           # → pixela worker  (River diff/finalize workers)
+  #   environment:
+  #     DATABASE_URL: postgresql://pixela:pixela@postgres:5432/pixela
+  #     REDIS_URL: redis://redis:6379
+  #     S3_ENDPOINT: http://minio:9000
+  #   depends_on:
+  #     postgres: { condition: service_healthy }
+  #     minio: { condition: service_healthy }
+  #   # Scale diff throughput horizontally: `docker compose up --scale worker=N`.
 
 volumes:
   pgdata:

@@ -18,6 +18,13 @@ build/
 # Test / coverage artifacts
 coverage/
 *.log
+*.out
+*.test
+
+# Go
+apps/api/tmp/
+apps/api/pixela
+apps/api/dist/
 
 # Pixela's OWN baseline PNGs and test artifacts must never be committed (CLAUDE.md)
 *.png

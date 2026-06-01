@@ -1,44 +1,128 @@
-# Pixela backend CI. Phase 0 scope: install, lint, typecheck, build.
-# The Testcontainers smoke runs locally / in a docker-enabled runner (added later).
-image: node:22
+# Pixela CI. Go backend (apps/api) + Angular dashboard (apps/web).
+# Backend rulebook: docs/architecture/go-backend.md §13 (separate parallel jobs:
+# lint+vet / build / unit (-race) / integration (Testcontainers via DinD)).
+# Pinned tool versions are mirrored from apps/api/Taskfile.yml — keep in lockstep.
 
 stages:
   - verify
 
 variables:
+  # ── Go ──
+  GO_IMAGE: golang:1.26
+  GOLANGCI_VERSION: v2.12.2
+  # Keep Go's module + build caches inside the project so GitLab can cache them.
+  GOPATH: '$CI_PROJECT_DIR/.gocache/gopath'
+  GOCACHE: '$CI_PROJECT_DIR/.gocache/build'
+  GOMODCACHE: '$CI_PROJECT_DIR/.gocache/gopath/pkg/mod'
+  # ── Node (apps/web) ──
   PNPM_VERSION: '10.15.1'
 
-# Cache the pnpm store keyed by the lockfile.
-cache:
-  key:
-    files:
-      - pnpm-lock.yaml
-  paths:
-    - .pnpm-store
+# Anchored helpers reused by jobs.
+.go_setup: &go_setup
+  - cd apps/api
+  - go version
 
-.setup: &setup
-  - corepack enable
-  - corepack prepare "pnpm@${PNPM_VERSION}" --activate
-  - pnpm config set store-dir .pnpm-store
-  - pnpm install --frozen-lockfile
-  # Prisma Client must be generated before typecheck/build (PrismaService imports it).
-  - pnpm --filter @pixela/api exec prisma generate
-
-lint:
+# ── Backend: lint + vet ──────────────────────────────────────────────────────
+go-lint:
   stage: verify
+  image: $GO_IMAGE
+  cache:
+    key:
+      files:
+        - apps/api/go.sum
+    paths:
+      - .gocache
+  before_script:
+    - *go_setup
+    # Install the pinned golangci-lint v2 (don't float).
+    - go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_VERSION}
+    - export PATH="$GOPATH/bin:$PATH"
   script:
-    - *setup
-    - pnpm lint
-    - pnpm format:check
+    - golangci-lint run
+    - go vet ./...
 
-typecheck:
+# ── Backend: build ───────────────────────────────────────────────────────────
+go-build:
   stage: verify
+  image: $GO_IMAGE
+  cache:
+    key:
+      files:
+        - apps/api/go.sum
+    paths:
+      - .gocache
+  variables:
+    CGO_ENABLED: '0'
+  before_script:
+    - *go_setup
   script:
-    - *setup
-    - pnpm typecheck
+    - go build -trimpath -ldflags="-s -w" -o ./bin/pixela ./cmd/pixela
 
-build:
+# ── Backend: unit tests (race detector) ──────────────────────────────────────
+# -race needs cgo, so CGO_ENABLED must NOT be 0 here (unlike the build).
+go-test:
   stage: verify
+  image: $GO_IMAGE
+  cache:
+    key:
+      files:
+        - apps/api/go.sum
+    paths:
+      - .gocache
+  before_script:
+    - *go_setup
   script:
-    - *setup
+    - go test -race ./...
+
+# ── Backend: integration tests (Testcontainers → needs Docker-in-Docker) ─────
+# Per go-backend.md §13 / testcontainers GitLab guide.
+go-integration:
+  stage: verify
+  image: $GO_IMAGE
+  services:
+    - name: docker:27-dind
+      alias: docker
+      # `dockerd --tls=false` startup-delay fix: certs dir empty → plain TCP on 2375.
+      command: ['--tls=false']
+  variables:
+    DOCKER_HOST: 'tcp://docker:2375'
+    DOCKER_TLS_CERTDIR: ''
+    # Testcontainers must reach mapped ports via the DinD host, not 'localhost'.
+    TESTCONTAINERS_HOST_OVERRIDE: 'docker'
+    TESTCONTAINERS_RYUK_DISABLED: 'true'
+  cache:
+    key:
+      files:
+        - apps/api/go.sum
+    paths:
+      - .gocache
+  before_script:
+    - *go_setup
+  script:
+    - go test -race -tags=integration ./test/...
+  # Must pass, but can be skipped on runners without DinD (set RUN_INTEGRATION=false).
+  allow_failure: false
+  rules:
+    - if: '$RUN_INTEGRATION == "false"'
+      when: never
+    - when: on_success
+
+# ── Frontend: Angular dashboard build (apps/web) ─────────────────────────────
+web-build:
+  stage: verify
+  image: node:22
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+      prefix: pnpm
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable
+    - corepack prepare "pnpm@${PNPM_VERSION}" --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+  script:
+    - cd apps/web
     - pnpm build

@@ -1,3 +1,4 @@
+# apps/api is a Go module (not a pnpm package) — list the TS workspaces explicitly.
 packages:
-  - apps/*
+  - apps/web
   - packages/*
