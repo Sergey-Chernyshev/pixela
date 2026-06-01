@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixela — Дизайн-полотно</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  html,body{ height:100%; margin:0; }
+  #root{ height:100vh; }
+  .fr{ width:100%; height:100%; border:0; display:block; background:var(--bg); border-radius:11px; }
+  .frame-shell{ width:100%; height:100%; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.10);
+    background:#0E0E10; box-shadow:0 1px 0 rgba(255,255,255,0.04) inset; position:relative; }
+  /* tiny browser-ish chrome strip so each artboard reads as an app window */
+  .winbar{ height:30px; display:flex; align-items:center; gap:7px; padding:0 12px; background:#141418;
+    border-bottom:1px solid rgba(255,255,255,0.07); }
+  .winbar .dots{ display:flex; gap:6px; }
+  .winbar .dots i{ width:10px; height:10px; border-radius:50%; display:block; }
+  .winbar .url{ margin-left:8px; font:500 11px/1 'Geist Mono',monospace; color:rgba(255,255,255,0.4);
+    background:#0b0b0d; border:1px solid rgba(255,255,255,0.07); border-radius:6px; padding:5px 10px; }
+  .winbar .url b{ color:rgba(255,255,255,0.7); font-weight:600; }
+  .winbody{ position:absolute; top:30px; left:0; right:0; bottom:0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+// Seed a zoomed-out starting view the first time this canvas opens (user pans persist after).
+(function(){ try{ var k='dc-viewport:'+location.pathname; if(!localStorage.getItem(k)){ localStorage.setItem(k, JSON.stringify({x:90,y:64,scale:0.5})); } }catch(e){} })();
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+// A framed app window hosting one of the screens via iframe.
+function Win({ src, url }){
+  return (
+    <div className="frame-shell">
+      <div className="winbar">
+        <span className="dots"><i style={{background:'#E06A52'}}></i><i style={{background:'#E0A53E'}}></i><i style={{background:'#4FB58A'}}></i></span>
+        <span className="url"><b>pixela.dev</b>{url}</span>
+      </div>
+      <div className="winbody"><iframe className="fr" src={src} title={url}></iframe></div>
+    </div>
+  );
+}
+
+function App(){
+  return (
+    <DesignCanvas>
+
+      <DCSection id="ds" title="Дизайн-система (Storybook)" subtitle="Источник истины: каждый компонент со всеми состояниями (default / hover / pressed / focus / disabled, open/closed). Страницы собираются из этих компонентов.">
+        <DCArtboard id="ds-explorer" label="Обозреватель компонентов" width={1340} height={820}>
+          <Win src="design-system.html" url="/design-system" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="review" title="Экран сравнения" subtitle="Ядро продукта — быстрый клавиатурный разбор диффов. Один снимок: эталон vs новый.">
+        <DCArtboard id="rv-side" label="A · 2-up «Рядом»" width={1240} height={760}>
+          <Win src="review.html?mode=side" url="/review · 2-up" />
+        </DCArtboard>
+        <DCArtboard id="rv-diff" label="B · Наложение различий" width={1240} height={760}>
+          <Win src="review.html?mode=side&diff=1" url="/review · diff" />
+        </DCArtboard>
+        <DCArtboard id="rv-onion" label="C · Onion-skin (прозрачность)" width={1240} height={760}>
+          <Win src="review.html?mode=onion" url="/review · onion" />
+        </DCArtboard>
+        <DCArtboard id="rv-curtain" label="D · Шторка + различия" width={1240} height={760}>
+          <Win src="review.html?mode=slider&diff=1" url="/review · slider" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="buildlist" title="Список сборок" subtitle="Лента прогонов CI. Статус = иконка + текст + цвет. Новые сверху.">
+        <DCArtboard id="bl-data" label="Плотный список" width={1240} height={720}>
+          <Win src="buildlist.html" url="/builds" />
+        </DCArtboard>
+        <DCArtboard id="bl-empty" label="Пустое состояние" width={1240} height={720}>
+          <Win src="buildlist.html?state=empty" url="/builds · empty" />
+        </DCArtboard>
+        <DCArtboard id="bl-load" label="Загрузка (скелетон)" width={1240} height={720}>
+          <Win src="buildlist.html?state=loading" url="/builds · loading" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="detail" title="Детали сборки" subtitle="Сетка миниатюр снимков · пакетные действия · «только изменённые» по умолчанию.">
+        <DCArtboard id="bd-grid" label="Сетка снимков" width={1240} height={800}>
+          <Win src="builddetail.html" url="/builds/a1b9f3c" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="tests" title="Тесты и история" subtitle="Иерархия как в Playwright: проект → spec → describe → test → снимок. Описания и теги — из аннотаций, read-only.">
+        <DCArtboard id="tt-tree" label="Дерево тестов (иерархия + детали)" width={1360} height={800}>
+          <Win src="testtree.html" url="/tests" />
+        </DCArtboard>
+        <DCArtboard id="tt-hist" label="История теста (тренд + события)" width={1240} height={840}>
+          <Win src="testhistory.html" url="/tests/promo-applied" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="org" title="Организация и проекты" subtitle="Уровень над проектами: проект = репозиторий. Обзор всех репозиториев, мониторинг команды и настройки сервиса.">
+        <DCArtboard id="org-projects" label="Обзор проектов (мульти-репозиторий)" width={1320} height={760}>
+          <Win src="projects.html" url="/acme" />
+        </DCArtboard>
+        <DCArtboard id="org-members" label="Участники (мониторинг по людям)" width={1320} height={760}>
+          <Win src="members.html" url="/acme/members" />
+        </DCArtboard>
+        <DCArtboard id="org-settings" label="Настройки · Общие" width={1320} height={760}>
+          <Win src="settings.html" url="/acme/settings" />
+        </DCArtboard>
+        <DCArtboard id="org-settings-thresh" label="Настройки · Пороги сравнения" width={1320} height={760}>
+          <Win src="settings.html?tab=thresholds" url="/acme/settings · thresholds" />
+        </DCArtboard>
+        <DCArtboard id="org-activity" label="Активность (лента событий)" width={1320} height={760}>
+          <Win src="activity.html" url="/acme/activity" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="project-work" title="Проект — рабочие разделы" subtitle="Разделы внутри репозитория: умная очередь проверок (группировка диффов), каталог снимков и управление базовыми линиями по веткам.">
+        <DCArtboard id="pw-queue" label="Очередь проверок (группировка)" width={1340} height={820}>
+          <Win src="reviewqueue.html" url="/storefront/queue" />
+        </DCArtboard>
+        <DCArtboard id="pw-snapshots" label="Снимки (каталог)" width={1340} height={760}>
+          <Win src="snapshots.html" url="/storefront/snapshots" />
+        </DCArtboard>
+        <DCArtboard id="pw-baselines" label="Базовые линии (по веткам)" width={1340} height={820}>
+          <Win src="baselines.html" url="/storefront/baselines" />
+        </DCArtboard>
+      </DCSection>
+
+      <DCSection id="login" title="Вход" subtitle="Минимальная карточка, без маркетингового оформления.">
+        <DCArtboard id="lg" label="Экран входа" width={920} height={720}>
+          <Win src="login.html" url="/login" />
+        </DCArtboard>
+      </DCSection>
+
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

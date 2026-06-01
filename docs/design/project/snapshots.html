@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Pixela — Снимки</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="ds-components.css">
+<link rel="stylesheet" href="app-shell.css">
+<style>
+  html,body{ height:100%; overflow:hidden; }
+  .filterbar{ display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-wrap:wrap; }
+  .filterbar .spacer{ flex:1; }
+  .statustabs{ display:flex; gap:2px; }
+  .statustab{ display:flex; align-items:center; gap:7px; height:32px; padding:0 12px; border-radius:7px; cursor:pointer;
+    background:transparent; border:1px solid transparent; color:var(--text-2); font-size:13px; font-weight:500; transition:background .12s; }
+  .statustab:hover{ background:var(--surface-2); color:var(--text-1); }
+  .statustab.active{ background:var(--surface-2); color:var(--text-1); border-color:var(--border); }
+  .statustab .n{ font-family:var(--mono); font-size:11px; color:var(--text-3); }
+  .statustab .dot{ width:7px; height:7px; border-radius:50%; }
+
+  .thumbcell{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .thumbcell .tm{ width:52px; height:40px; border-radius:6px; overflow:hidden; border:1px solid var(--border); background:#0b0b0d; position:relative; flex:0 0 auto; }
+  .thumbcell .tm img{ position:absolute; top:0; left:0; width:100%; }
+  .thumbcell .tm .ov{ position:absolute; top:0; left:0; width:100%; opacity:.8; }
+  .thumbcell .nm{ font-weight:550; font-family:var(--mono); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .thumbcell .pth{ font-size:11px; color:var(--text-3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .br-cell{ display:flex; align-items:center; gap:7px; color:var(--text-2); font-size:12.5px; } .br-cell svg{ width:14px; height:14px; }
+  .vp{ font-family:var(--mono); font-size:12px; color:var(--text-2); }
+  .flakybar{ display:inline-flex; align-items:center; gap:8px; }
+  .flakybar .bar{ width:46px; height:5px; border-radius:3px; background:var(--surface-3); overflow:hidden; } .flakybar .bar i{ display:block; height:100%; }
+  .flakybar .v{ font-family:var(--mono); font-size:12px; }
+  .tagrow{ display:flex; gap:5px; } .tag{ font-family:var(--mono); font-size:10.5px; color:var(--accent-2); background:var(--accent-bg); border:1px solid rgba(110,138,250,.2); border-radius:5px; padding:1px 6px; }
+  .when{ font-family:var(--mono); font-size:12px; color:var(--text-3); white-space:nowrap; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="projside"></aside>
+  <main class="main">
+    <div class="topbar">
+      <div class="htitle"><h1>Снимки</h1><span class="sub">Storefront · каталог всех снимков проекта</span></div>
+      <div class="spacer"></div>
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Поиск по имени или тегу…</div>
+    </div>
+    <div class="body">
+      <div class="filterbar">
+        <div class="statustabs" id="statustabs"></div>
+        <div class="spacer"></div>
+        <button class="fbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg> Браузер <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+        <button class="fbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg> Тег <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+        <button class="fbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg> Нестабильные</button>
+      </div>
+      <div style="font-size:12px;color:var(--text-3);font-family:var(--mono);margin:10px 0 6px" id="count">496 снимков</div>
+      <table class="tbl">
+        <thead><tr>
+          <th>Снимок</th><th>Браузер</th><th>Вьюпорт</th><th>Теги</th><th>Статус</th><th class="num">Нестабильность</th><th>Изменён</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script src="project-shell.js"></script>
+<script>
+  renderProjSide('snapshots');
+  const BASE='assets/baseline.png', NEW='assets/new.png', DIFF='assets/diff.png';
+
+  const tabs = [
+    ['all','Все','496',null], ['changed','Изменено','12','var(--changed)'], ['new','Новые','3','var(--new)'],
+    ['flaky','Нестабильные','4','var(--changed)'], ['approved','Эталон','480','var(--ok)'],
+  ];
+  const stt = document.getElementById('statustabs');
+  stt.innerHTML = tabs.map((t,i)=>`<div class="statustab ${i===0?'active':''}" data-t="${t[0]}">${t[3]?`<span class="dot" style="background:${t[3]}"></span>`:''}${t[1]} <span class="n">${t[2]}</span></div>`).join('');
+  stt.querySelectorAll('.statustab').forEach(t=> t.addEventListener('click',()=>{ stt.querySelectorAll('.statustab').forEach(x=>x.classList.toggle('active',x===t)); }));
+
+  const brIcon = {
+    Chromium:'<svg viewBox="0 0 24 24" fill="none" stroke="#7da3e0" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/></svg>',
+    Firefox:'<svg viewBox="0 0 24 24" fill="none" stroke="#e0954e" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5 8c2-3 7-2 8 1"/></svg>',
+    WebKit:'<svg viewBox="0 0 24 24" fill="none" stroke="#5fb6c9" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m8 16 4-8 4 8"/></svg>',
+  };
+  const stMap = {
+    changed:['changed','Изменено','<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'],
+    new:['new','Новый','<path d="M12 5v14M5 12h14"/>'],
+    approved:['approved','Эталон','<path d="M20 6 9 17l-5-5"/>'],
+    removed:['removed','Удалён','<path d="M5 12h14"/>'],
+  };
+  const rows = [
+    {n:'promo-applied', path:'checkout-mobile › Payment step', br:'Chromium', vp:'390×844', tags:['@critical','@checkout'], st:'changed', flaky:4, when:'8 мин', img:NEW, ov:true},
+    {n:'pricing-tiers', path:'pricing › Pricing table', br:'Firefox', vp:'1440×900', tags:['@regression'], st:'changed', flaky:0, when:'8 мин', img:BASE},
+    {n:'pay-button', path:'checkout-desktop › Summary', br:'Chromium', vp:'1440×900', tags:['@checkout'], st:'changed', flaky:0, when:'8 мин', img:NEW},
+    {n:'support-strip', path:'footer › Support', br:'Chromium', vp:'1440×900', tags:['@new'], st:'new', flaky:0, when:'8 мин', img:NEW},
+    {n:'nav-header', path:'nav › Header', br:'WebKit', vp:'390×844', tags:['@nav'], st:'changed', flaky:11, when:'8 мин', img:BASE, ov:true},
+    {n:'shipping-form', path:'checkout-mobile › Shipping', br:'Chromium', vp:'390×844', tags:['@checkout'], st:'approved', flaky:1, when:'2 дн', img:BASE},
+    {n:'order-summary', path:'checkout-mobile › Payment', br:'Chromium', vp:'390×844', tags:['@checkout'], st:'approved', flaky:0, when:'2 дн', img:BASE},
+    {n:'product-card', path:'catalog › Card', br:'Firefox', vp:'1440×900', tags:['@catalog'], st:'approved', flaky:0, when:'6 дн', img:NEW},
+    {n:'modal-confirm', path:'admin › Dialog', br:'Chromium', vp:'1440×900', tags:['@admin'], st:'approved', flaky:2, when:'21 дн', img:BASE},
+  ];
+  document.getElementById('count').textContent = '496 снимков · показано ' + rows.length;
+  function flaky(v){
+    if(!v) return '<span style="color:var(--text-3)">—</span>';
+    const col = v>=8?'var(--removed)':v>=3?'var(--changed)':'var(--ok)';
+    return `<span class="flakybar"><span class="bar"><i style="width:${Math.min(100,v*8)}%;background:${col}"></i></span><span class="v" style="color:${col}">${v}%</span></span>`;
+  }
+  document.getElementById('rows').innerHTML = rows.map(r=>{
+    const s=stMap[r.st];
+    const ov = r.ov ? `<img class="ov" src="${DIFF}">` : '';
+    return `<tr>
+      <td><div class="thumbcell"><span class="tm"><img src="${r.img}">${ov}</span><div style="min-width:0"><div class="nm">${r.n}.png</div><div class="pth">${r.path}</div></div></div></td>
+      <td><span class="br-cell">${brIcon[r.br]} ${r.br}</span></td>
+      <td><span class="vp">${r.vp}</span></td>
+      <td><div class="tagrow">${r.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div></td>
+      <td><span class="status status--${s[0]}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">${s[2]}</svg> ${s[1]}</span></td>
+      <td class="num">${flaky(r.flaky)}</td>
+      <td><span class="when">${r.when}</span></td>
+    </tr>`;
+  }).join('');
+</script>
+</body>
+</html>

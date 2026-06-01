@@ -1,0 +1,75 @@
+/* ============================================================
+   Pixela — app shell chrome (sidebars, topbar, summary, table)
+   Shared by org-level (org-shell.js) and project-level
+   (project-shell.js) screens. Builds on styles.css tokens.
+   ============================================================ */
+
+.shell{ height:100vh; display:flex; background:var(--bg); }
+
+/* ---------- sidebar (org + project share these) ---------- */
+.side{ width:232px; flex:0 0 232px; border-right:1px solid var(--border); background:var(--surface-1); display:flex; flex-direction:column; }
+.side .brand{ height:52px; display:flex; align-items:center; gap:9px; padding:0 16px; border-bottom:1px solid var(--border); }
+.side .logo{ width:22px; height:22px; border-radius:6px; background:var(--accent); display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+.side .logo svg{ width:14px; height:14px; color:var(--accent-fg); }
+.side .brand .name{ font-weight:600; font-size:15px; letter-spacing:-.01em; }
+
+/* org switcher / project selector pill */
+.orgsel,.proj{ margin:12px 12px 6px; padding:9px 11px; border-radius:8px; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; gap:10px; cursor:pointer; transition:background .12s; }
+.orgsel:hover,.proj:hover{ background:var(--surface-3); }
+.orgsel .av{ width:24px; height:24px; border-radius:6px; background:linear-gradient(135deg,#6E8AFA,#9d7bf0); flex:0 0 auto; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#fff; }
+.proj .sq{ width:22px; height:22px; border-radius:6px; flex:0 0 auto; }
+.orgsel .t,.proj .t{ flex:1; min-width:0; }
+.orgsel .t .o,.proj .t .o{ font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.orgsel .t .p,.proj .t .p{ font-size:11px; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.orgsel .ch,.proj .ch{ color:var(--text-3); } .orgsel .ch svg,.proj .ch svg{ width:14px; height:14px; }
+
+.backlink{ display:flex; align-items:center; gap:8px; margin:8px 12px 0; padding:5px 10px; border-radius:6px; color:var(--text-3); font-size:12px; font-weight:500; cursor:pointer; }
+.backlink:hover{ background:var(--surface-2); color:var(--text-2); } .backlink svg{ width:14px; height:14px; }
+
+.nav{ padding:8px 12px; display:flex; flex-direction:column; gap:2px; }
+.nav .lbl{ font-size:10.5px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-3); padding:10px 10px 6px; }
+.nav a{ display:flex; align-items:center; gap:11px; height:34px; padding:0 10px; border-radius:7px; color:var(--text-2); font-size:13px; font-weight:500; text-decoration:none; transition:background .12s,color .12s; }
+.nav a svg{ width:16px; height:16px; flex:0 0 auto; }
+.nav a .ct{ margin-left:auto; font-size:11px; font-family:var(--mono); color:var(--text-3); background:var(--surface-2); border-radius:5px; padding:1px 6px; }
+.nav a:hover{ background:var(--surface-2); color:var(--text-1); text-decoration:none; }
+.nav a.active{ background:var(--accent-bg); color:var(--accent-2); }
+.nav a.active .ct{ color:var(--accent-2); background:rgba(110,138,250,0.16); }
+.nav a .ct.amber{ color:var(--changed); background:var(--changed-bg); }
+
+.side .foot{ margin-top:auto; padding:10px 12px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+.side .foot .ava{ width:28px; height:28px; border-radius:50%; background:#5b6ee0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; flex:0 0 auto; }
+.side .foot .un{ font-size:13px; font-weight:550; } .side .foot .ue{ font-size:11px; color:var(--text-3); }
+.side .foot .cog{ margin-left:auto; color:var(--text-3); cursor:pointer; } .side .foot .cog svg{ width:16px; height:16px; }
+
+/* ---------- main column ---------- */
+.main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+.topbar{ min-height:58px; flex:0 0 auto; display:flex; align-items:center; gap:14px; padding:10px 26px; border-bottom:1px solid var(--border); }
+.topbar .htitle{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.topbar h1{ margin:0; font-size:18px; font-weight:600; letter-spacing:-.01em; white-space:nowrap; }
+.topbar .sub{ font-size:12.5px; color:var(--text-3); white-space:nowrap; }
+.topbar .spacer{ flex:1; }
+.topbar .search{ display:flex; align-items:center; gap:8px; height:34px; padding:0 12px; border-radius:8px; background:var(--surface-inset); border:1px solid var(--border); width:230px; color:var(--text-3); font-size:13px; }
+.topbar .search svg{ width:15px; height:15px; }
+
+.body{ flex:1; overflow:auto; padding:22px 26px 48px; }
+
+/* ---------- summary stat strip ---------- */
+.summary{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+.scard{ border:1px solid var(--border); border-radius:12px; background:var(--surface-1); padding:15px 17px; }
+.scard .lab{ font-size:11.5px; color:var(--text-3); text-transform:uppercase; letter-spacing:.04em; display:flex; align-items:center; gap:7px; margin-bottom:10px; }
+.scard .lab svg{ width:14px; height:14px; flex:0 0 auto; }
+.scard .num{ font-family:var(--mono); font-size:25px; font-weight:600; letter-spacing:-.02em; }
+.scard .sub{ font-size:11.5px; color:var(--text-3); margin-top:4px; }
+.scard.amber .num{ color:var(--changed); } .scard.green .num{ color:var(--ok); } .scard.blue .num{ color:var(--accent-2); }
+
+.secrow{ display:flex; align-items:center; justify-content:space-between; margin:4px 0 14px; gap:14px; }
+.secrow h2{ margin:0; font-size:14px; font-weight:600; }
+.fbtn{ display:flex; align-items:center; gap:7px; height:32px; padding:0 11px; border-radius:7px; background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); font-size:12.5px; font-weight:500; cursor:pointer; }
+.fbtn:hover{ background:var(--surface-3); color:var(--text-1); } .fbtn svg{ width:14px; height:14px; }
+
+/* ---------- generic data table ---------- */
+.tbl{ width:100%; border-collapse:collapse; }
+.tbl thead th{ text-align:left; font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--text-3); padding:0 14px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+.tbl thead th.num, .tbl tbody td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+.tbl tbody td{ padding:13px 14px; border-bottom:1px solid var(--border-faint); font-size:13px; vertical-align:middle; }
+.tbl tbody tr{ cursor:pointer; } .tbl tbody tr:hover{ background:var(--surface-1); }

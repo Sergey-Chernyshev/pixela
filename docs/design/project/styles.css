@@ -1,0 +1,169 @@
+/* ============================================================
+   Pixela — shared dark-theme token system
+   Lineage: Linear / Vercel Geist / GitHub Primer.
+   Elevation by surface-lightness, 1px hairlines, one muted accent.
+   ============================================================ */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+
+:root{
+  /* base + elevation (lightness, not shadow) */
+  --bg:            #0E0E10;
+  --surface-1:     #16161A;
+  --surface-2:     #1E1E24;
+  --surface-3:     #26262E;   /* hover / active */
+  --surface-inset: #0B0B0D;   /* stage well, inputs */
+
+  /* hairlines */
+  --border:        rgba(255,255,255,0.08);
+  --border-strong: rgba(255,255,255,0.14);
+  --border-faint:  rgba(255,255,255,0.05);
+
+  /* text */
+  --text-1: rgba(255,255,255,0.92);
+  --text-2: rgba(255,255,255,0.60);
+  --text-3: rgba(255,255,255,0.40);
+
+  /* one muted accent */
+  --accent:    #6E8AFA;
+  --accent-2:  #8AA0FB;
+  --accent-bg: rgba(110,138,250,0.14);
+  --accent-fg: #0B0B0D;
+
+  /* desaturated semantics for dark surfaces */
+  --ok:        #4FB58A;   /* passed / approved / unchanged */
+  --ok-bg:     rgba(79,181,138,0.13);
+  --changed:   #E0A53E;   /* changed / review */
+  --changed-bg:rgba(224,165,62,0.13);
+  --new:       #56A8D6;   /* new / info */
+  --new-bg:    rgba(86,168,214,0.13);
+  --removed:   #E06A52;   /* removed / rejected / error */
+  --removed-bg:rgba(224,106,82,0.13);
+  --neutral:   rgba(255,255,255,0.40);
+  --neutral-bg:rgba(255,255,255,0.06);
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+
+  --font: 'Geist','Geist Fallback',system-ui,-apple-system,sans-serif;
+  --mono: 'Geist Mono','SF Mono',ui-monospace,monospace;
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+.mono{ font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.tnum{ font-variant-numeric: tabular-nums; }
+
+::-webkit-scrollbar{ width:10px; height:10px; }
+::-webkit-scrollbar-thumb{ background:rgba(255,255,255,0.12); border-radius:6px; border:2px solid transparent; background-clip:padding-box; }
+::-webkit-scrollbar-thumb:hover{ background:rgba(255,255,255,0.2); background-clip:padding-box; }
+::-webkit-scrollbar-track{ background:transparent; }
+
+/* ---- status pill: icon + label + color (never color alone) ---- */
+.status{
+  display:inline-flex; align-items:center; gap:6px;
+  height:22px; padding:0 9px 0 7px;
+  border-radius:999px;
+  font-size:12px; font-weight:600; line-height:1;
+  border:1px solid transparent;
+  white-space:nowrap;
+}
+.status svg{ width:13px; height:13px; flex:0 0 auto; }
+.status--passed   { color:var(--ok);      background:var(--ok-bg);      border-color:rgba(79,181,138,0.30); }
+.status--approved { color:var(--ok);      background:var(--ok-bg);      border-color:rgba(79,181,138,0.30); }
+.status--unchanged{ color:var(--text-2);  background:var(--neutral-bg); border-color:var(--border); }
+.status--review   { color:var(--changed); background:var(--changed-bg); border-color:rgba(224,165,62,0.30); }
+.status--changed  { color:var(--changed); background:var(--changed-bg); border-color:rgba(224,165,62,0.30); }
+.status--new      { color:var(--new);     background:var(--new-bg);     border-color:rgba(86,168,214,0.30); }
+.status--removed  { color:var(--removed); background:var(--removed-bg); border-color:rgba(224,106,82,0.30); }
+.status--rejected { color:var(--removed); background:var(--removed-bg); border-color:rgba(224,106,82,0.30); }
+.status--error    { color:var(--removed); background:var(--removed-bg); border-color:rgba(224,106,82,0.30); }
+.status--comparing{ color:var(--accent);  background:var(--accent-bg);  border-color:rgba(110,138,250,0.30); }
+
+/* count chip */
+.chip{
+  display:inline-flex; align-items:center; gap:5px;
+  height:22px; padding:0 8px;
+  border-radius:6px;
+  font-size:12px; font-weight:500;
+  font-variant-numeric: tabular-nums;
+  color:var(--text-2);
+  background:var(--neutral-bg);
+  border:1px solid var(--border-faint);
+  white-space:nowrap;
+}
+.chip b{ font-weight:600; }
+.chip .dot{ width:7px; height:7px; border-radius:50%; flex:0 0 auto; }
+.chip--ok b{ color:var(--ok); }            .chip--ok .dot{ background:var(--ok); }
+.chip--changed b{ color:var(--changed); }  .chip--changed .dot{ background:var(--changed); }
+.chip--new b{ color:var(--new); }          .chip--new .dot{ background:var(--new); }
+.chip--removed b{ color:var(--removed); }  .chip--removed .dot{ background:var(--removed); }
+
+/* buttons */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  height:32px; padding:0 13px;
+  border-radius:var(--radius-sm);
+  font-family:var(--font); font-size:13px; font-weight:550;
+  color:var(--text-1);
+  background:var(--surface-2);
+  border:1px solid var(--border);
+  cursor:pointer;
+  transition: background .12s, border-color .12s, color .12s;
+  white-space:nowrap;
+}
+.btn:hover{ background:var(--surface-3); border-color:var(--border-strong); }
+.btn svg{ width:15px; height:15px; }
+.btn--primary{ background:var(--accent); color:var(--accent-fg); border-color:transparent; font-weight:600; }
+.btn--primary:hover{ background:var(--accent-2); }
+.btn--ghost{ background:transparent; border-color:transparent; color:var(--text-2); }
+.btn--ghost:hover{ background:var(--surface-2); color:var(--text-1); }
+.btn--ok{ background:var(--ok); color:#06140E; border-color:transparent; font-weight:600; }
+.btn--ok:hover{ background:#5cc599; }
+.btn--danger{ color:var(--removed); background:var(--removed-bg); border-color:rgba(224,106,82,0.30); font-weight:600; }
+.btn--danger:hover{ background:rgba(224,106,82,0.22); }
+
+kbd{
+  font-family:var(--mono); font-size:11px; font-weight:500;
+  min-width:18px; height:18px; padding:0 5px;
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--surface-3); color:var(--text-2);
+  border:1px solid var(--border-strong);
+  border-bottom-width:2px;
+  border-radius:5px;
+}
+
+/* segmented control */
+.seg{ display:inline-flex; background:var(--surface-inset); border:1px solid var(--border); border-radius:7px; padding:2px; gap:2px; }
+.seg button{
+  display:inline-flex; align-items:center; gap:6px;
+  height:26px; padding:0 11px; border:0; border-radius:5px;
+  font-family:var(--font); font-size:12.5px; font-weight:550;
+  color:var(--text-2); background:transparent; cursor:pointer;
+  transition: background .12s, color .12s;
+}
+.seg button svg{ width:14px; height:14px; }
+.seg button:hover{ color:var(--text-1); }
+.seg button[aria-pressed="true"]{ background:var(--surface-3); color:var(--text-1); box-shadow:0 1px 0 rgba(0,0,0,0.3); }
+
+/* icon button */
+.iconbtn{
+  width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center;
+  border-radius:6px; border:1px solid var(--border); background:var(--surface-2);
+  color:var(--text-2); cursor:pointer; transition:background .12s,color .12s,border-color .12s;
+}
+.iconbtn:hover{ background:var(--surface-3); color:var(--text-1); border-color:var(--border-strong); }
+.iconbtn svg{ width:15px; height:15px; }
+.iconbtn[aria-pressed="true"]{ background:var(--accent-bg); color:var(--accent-2); border-color:rgba(110,138,250,0.35); }
+
+a{ color:var(--accent-2); text-decoration:none; }
+a:hover{ text-decoration:underline; }

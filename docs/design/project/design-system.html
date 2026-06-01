@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixela — Дизайн-система</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="ds-components.css">
+<style>
+  html,body{ height:100%; overflow:hidden; }
+  .sb{ height:100vh; display:flex; background:var(--bg); }
+
+  /* ---- sidebar ---- */
+  .sbside{ width:248px; flex:0 0 248px; border-right:1px solid var(--border); background:var(--surface-1); display:flex; flex-direction:column; }
+  .sbside .top{ height:52px; flex:0 0 52px; display:flex; align-items:center; gap:9px; padding:0 16px; border-bottom:1px solid var(--border); }
+  .sbside .logo{ width:22px; height:22px; border-radius:6px; background:var(--accent); display:flex; align-items:center; justify-content:center; } .sbside .logo svg{ width:14px; height:14px; color:var(--accent-fg); }
+  .sbside .ttl{ font-weight:600; font-size:14px; } .sbside .ttl span{ color:var(--text-3); font-weight:500; }
+  .sbsearch{ margin:12px; display:flex; align-items:center; gap:8px; height:32px; padding:0 11px; border-radius:8px; background:var(--surface-inset); border:1px solid var(--border); color:var(--text-3); font-size:12.5px; }
+  .sbsearch svg{ width:14px; height:14px; } .sbsearch input{ flex:1; background:none; border:0; outline:none; color:var(--text-1); font-family:var(--font); font-size:12.5px; } .sbsearch input::placeholder{ color:var(--text-3); }
+  .sbnav{ flex:1; overflow:auto; padding:4px 10px 24px; }
+  .sbnav .grp{ font-size:10.5px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text-3); padding:14px 10px 6px; }
+  .sbnav button{ display:flex; align-items:center; gap:10px; width:100%; height:32px; padding:0 10px; border:0; border-radius:7px; background:transparent; color:var(--text-2); font-family:var(--font); font-size:13px; font-weight:500; cursor:pointer; text-align:left; }
+  .sbnav button:hover{ background:var(--surface-2); color:var(--text-1); }
+  .sbnav button.active{ background:var(--accent-bg); color:var(--accent-2); }
+  .sbnav button .dotn{ width:6px; height:6px; border-radius:50%; background:var(--text-3); margin-left:auto; opacity:0; }
+
+  /* ---- main ---- */
+  .sbmain{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .sbhead{ flex:0 0 auto; padding:24px 34px 18px; border-bottom:1px solid var(--border); }
+  .sbhead h1{ margin:0 0 5px; font-size:22px; font-weight:600; letter-spacing:-.02em; }
+  .sbhead p{ margin:0; font-size:13.5px; color:var(--text-2); max-width:640px; line-height:1.55; }
+  .sbhead .usedin{ margin-top:12px; display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:11.5px; color:var(--text-3); }
+  .sbhead .usedin .pin{ font-family:var(--mono); font-size:11px; color:var(--text-2); background:var(--surface-2); border:1px solid var(--border-faint); border-radius:5px; padding:2px 7px; white-space:nowrap; }
+  .sbbody{ flex:1; overflow:auto; padding:26px 34px 80px; position:relative; }
+
+  .story{ margin-bottom:34px; }
+  .story > h2{ margin:0 0 4px; font-size:13px; font-weight:600; letter-spacing:.02em; }
+  .story > .sd{ margin:0 0 16px; font-size:12.5px; color:var(--text-3); }
+  .grid{ display:flex; flex-wrap:wrap; gap:14px; }
+  .cell{ display:flex; flex-direction:column; }
+  .stage{ min-width:120px; min-height:74px; padding:18px 20px; border-radius:10px;
+    background:var(--surface-inset);
+    background-image:radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px); background-size:13px 13px;
+    border:1px solid var(--border); display:flex; align-items:center; justify-content:center; gap:12px; }
+  .stage.tall{ min-height:150px; align-items:flex-start; }
+  .stage.wide{ min-width:280px; }
+  .cap{ margin-top:8px; font-size:11.5px; color:var(--text-2); font-weight:500; text-align:center; }
+  .cap .sub{ display:block; color:var(--text-3); font-weight:400; font-size:10.5px; font-family:var(--mono); margin-top:1px; }
+
+  /* foundations bits */
+  .swrow{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .sw{ border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface-1); }
+  .sw .chip2{ height:56px; } .sw .meta{ padding:9px 11px; } .sw .meta .n{ font-size:12.5px; font-weight:550; } .sw .meta .v{ font-size:11px; color:var(--text-3); font-family:var(--mono); margin-top:2px; }
+  .typerow{ display:flex; align-items:baseline; gap:16px; padding:11px 0; border-bottom:1px solid var(--border-faint); }
+  .typerow .lbl{ width:120px; flex:0 0 120px; font-size:11.5px; color:var(--text-3); font-family:var(--mono); }
+  .radrow{ display:flex; gap:20px; }
+  .radbox{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .radbox .b{ width:80px; height:56px; background:var(--surface-2); border:1px solid var(--border-strong); }
+
+  code.tok{ font-family:var(--mono); font-size:11.5px; color:var(--accent-2); background:var(--accent-bg); border:1px solid rgba(110,138,250,.2); border-radius:5px; padding:1px 6px; }
+  @keyframes tin{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+
+  /* code snippet panel */
+  .codeblock{ margin-top:8px; border:1px solid var(--border); border-radius:11px; overflow:hidden; background:var(--surface-inset); max-width:760px; }
+  .codeblock .cbh{ display:flex; align-items:center; gap:8px; padding:9px 13px; border-bottom:1px solid var(--border); background:var(--surface-1); }
+  .codeblock .cbh .lbl{ font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--text-3); display:flex; align-items:center; gap:7px; }
+  .codeblock .cbh .lbl svg{ width:13px; height:13px; }
+  .codeblock .cbh .copy{ margin-left:auto; display:inline-flex; align-items:center; gap:6px; height:26px; padding:0 10px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-2); font-family:var(--font); font-size:12px; font-weight:500; cursor:pointer; }
+  .codeblock .cbh .copy:hover{ background:var(--surface-3); color:var(--text-1); } .codeblock .cbh .copy svg{ width:13px; height:13px; }
+  .codeblock pre{ margin:0; padding:14px 16px; overflow:auto; }
+  .codeblock code{ font-family:var(--mono); font-size:12.5px; line-height:1.7; color:var(--text-1); white-space:pre; }
+  .codeblock .tag{ color:#7da3e0; } .codeblock .attr{ color:var(--changed); } .codeblock .str{ color:var(--ok); } .codeblock .com{ color:var(--text-3); }
+</style>
+</head>
+<body>
+<div class="sb">
+  <aside class="sbside">
+    <div class="top"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor"/></svg></span><span class="ttl">Pixela <span>/ DS</span></span></div>
+    <div class="sbsearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="sbsearch" placeholder="Поиск компонента…"></div>
+    <nav class="sbnav" id="sbnav"></nav>
+  </aside>
+  <main class="sbmain">
+    <div class="sbhead"><h1 id="h-title">—</h1><p id="h-desc"></p><div class="usedin" id="h-used"></div></div>
+    <div class="sbbody" id="sbbody"></div>
+  </main>
+</div>
+
+<script src="ds-registry.js"></script>
+<script>
+  const groups = [
+    ['Основы', ['color','type','radius']],
+    ['Управление', ['button','iconbtn','segmented','tabs','navitem','breadcrumb','pager']],
+    ['Формы', ['input','select','switch','check','radio','slider']],
+    ['Данные и статус', ['status','chip','role','avatar','kbd','sparkline']],
+    ['Оверлеи и обратная связь', ['modal','toast','tooltip','card','empty']],
+  ];
+  const nav = document.getElementById('sbnav');
+  function buildNav(filter=''){
+    nav.innerHTML = groups.map(([g,ids])=>{
+      const items = ids.filter(id=> DS[id] && DS[id].title.toLowerCase().includes(filter.toLowerCase()));
+      if(!items.length) return '';
+      return `<div class="grp">${g}</div>` + items.map(id=>`<button data-id="${id}">${DS[id].title}</button>`).join('');
+    }).join('');
+    nav.querySelectorAll('button').forEach(b=> b.addEventListener('click',()=>select(b.dataset.id)));
+  }
+  function select(id){
+    const c = DS[id]; if(!c) return;
+    nav.querySelectorAll('button').forEach(b=> b.classList.toggle('active', b.dataset.id===id));
+    document.getElementById('h-title').textContent = c.title;
+    document.getElementById('h-desc').textContent = c.desc || '';
+    document.getElementById('h-used').innerHTML = c.used ? ('Используется: ' + c.used.map(u=>`<span class="pin">${u}</span>`).join('')) : '';
+    document.getElementById('sbbody').innerHTML = c.body() + (c.code ? codePanel(c.code) : '');
+    document.getElementById('sbbody').scrollTop = 0;
+    if(c.init) c.init();
+    wireCopy();
+    location.hash = id;
+  }
+  document.getElementById('sbsearch').addEventListener('input', e=> buildNav(e.target.value));
+
+  // ---- code snippet panel ----
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function highlight(s){
+    s = esc(s);
+    // attributes ="..." (run on plain escaped text, before any spans are inserted)
+    s = s.replace(/([a-zA-Z-]+)=(&quot;|")(.*?)(\2)/g, '<span class="attr">$1</span>=<span class="str">"$3"</span>');
+    // tags (match only escaped &lt; originals, not inserted real <span>)
+    s = s.replace(/(&lt;\/?)([a-zA-Z0-9-]+)/g, '$1<span class="tag">$2</span>');
+    // comments LAST so their class="com" isn't re-processed by the rules above
+    s = s.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="com">$1</span>');
+    return s;
+  }
+  function codePanel(code){
+    return `<div class="story"><div class="codeblock">
+      <div class="cbh"><span class="lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 9-4 3 4 3M16 9l4 3-4 3M13 6l-2 12"/></svg>Разметка</span>
+      <button class="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Копировать</button></div>
+      <pre><code>${highlight(code)}</code></pre>
+    </div></div>`;
+  }
+  function wireCopy(){
+    document.querySelectorAll('.codeblock .copy').forEach(btn=> btn.addEventListener('click',()=>{
+      const txt = btn.closest('.codeblock').querySelector('code').textContent;
+      navigator.clipboard && navigator.clipboard.writeText(txt);
+      const orig = btn.innerHTML; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>Скопировано';
+      setTimeout(()=>btn.innerHTML=orig, 1200);
+    }));
+  }
+
+  buildNav();
+  const start = (location.hash||'').replace('#','');
+  select(DS[start] ? start : 'color');
+</script>
+</body>
+</html>
