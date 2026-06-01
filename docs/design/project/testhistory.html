@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Pixela — История теста</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  html,body{ height:100%; overflow:hidden; }
+  .shell{ height:100vh; display:flex; background:var(--bg); }
+  .side{ width:60px; flex:0 0 60px; border-right:1px solid var(--border); background:var(--surface-1); display:flex; flex-direction:column; align-items:center; padding:12px 0; gap:6px; }
+  .side .logo{ width:30px; height:30px; border-radius:8px; background:var(--accent); display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
+  .side .logo svg{ width:18px; height:18px; color:var(--accent-fg); }
+  .side a{ width:38px; height:38px; border-radius:9px; display:flex; align-items:center; justify-content:center; color:var(--text-3); }
+  .side a svg{ width:19px; height:19px; } .side a:hover{ background:var(--surface-2); color:var(--text-1); }
+  .side a.active{ background:var(--accent-bg); color:var(--accent-2); } .side .sp{ flex:1; }
+  .side .ava{ width:30px; height:30px; border-radius:50%; background:#5b6ee0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; }
+
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .hd{ padding:18px 30px 16px; border-bottom:1px solid var(--border); }
+  .hd .crumb{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-3); margin-bottom:10px; font-family:var(--mono); }
+  .hd .crumb a{ color:var(--text-2); } .hd .crumb .sl{ color:var(--text-3); }
+  .hd .titlerow{ display:flex; align-items:center; gap:13px; }
+  .hd h1{ margin:0; font-size:21px; font-weight:600; letter-spacing:-.02em; }
+  .hd .titlerow .spacer{ flex:1; }
+
+  .body{ flex:1; overflow:auto; padding:22px 30px 50px; }
+  .wrap{ max-width:1080px; }
+
+  .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:26px; }
+  .stat{ border:1px solid var(--border); border-radius:11px; background:var(--surface-1); padding:14px 16px; }
+  .stat .lab{ font-size:11.5px; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; margin-bottom:9px; display:flex; align-items:center; gap:7px; }
+  .stat .lab svg{ width:14px; height:14px; }
+  .stat .num{ font-family:var(--mono); font-size:24px; font-weight:600; letter-spacing:-.02em; }
+  .stat .sub{ font-size:11.5px; color:var(--text-3); margin-top:3px; }
+  .stat.amber .num{ color:var(--changed); }
+
+  .panel{ border:1px solid var(--border); border-radius:12px; background:var(--surface-1); margin-bottom:26px; }
+  .panel .ph{ display:flex; align-items:center; justify-content:space-between; padding:14px 18px; border-bottom:1px solid var(--border); }
+  .panel .ph h2{ margin:0; font-size:14px; font-weight:600; }
+  .panel .ph .leg{ display:flex; gap:14px; font-size:11.5px; color:var(--text-3); }
+  .panel .ph .leg span{ display:flex; align-items:center; gap:5px; } .panel .ph .leg i{ width:9px; height:9px; border-radius:2px; display:block; }
+  .chart{ padding:20px 18px 14px; }
+  .bars{ display:flex; align-items:flex-end; gap:4px; height:120px; position:relative; }
+  .thline{ position:absolute; left:0; right:0; border-top:1px dashed rgba(224,165,62,.4); } .thlabel{ position:absolute; right:0; font-size:10px; color:var(--changed); font-family:var(--mono); transform:translateY(-50%); background:var(--surface-1); padding:0 4px; }
+  .bcol{ flex:1; min-width:5px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; position:relative; cursor:pointer; }
+  .bcol .bar{ width:100%; border-radius:2px 2px 0 0; background:var(--ok); transition:opacity .1s; }
+  .bcol:hover .bar{ opacity:.7; }
+  .bcol .bar.changed{ background:var(--changed); } .bcol .bar.rejected{ background:var(--removed); } .bcol .bar.new{ background:var(--new); }
+  .bcol .flag{ position:absolute; top:-14px; width:11px; height:11px; color:var(--ok); }
+  .axis{ display:flex; justify-content:space-between; font-size:10.5px; color:var(--text-3); font-family:var(--mono); margin-top:10px; }
+
+  /* timeline feed */
+  .feed{ position:relative; padding-left:8px; }
+  .feed::before{ content:""; position:absolute; left:19px; top:6px; bottom:10px; width:2px; background:var(--border); }
+  .ev{ display:flex; gap:16px; padding-bottom:22px; position:relative; }
+  .ev .marker{ width:24px; height:24px; border-radius:50%; flex:0 0 24px; display:flex; align-items:center; justify-content:center; z-index:1; border:2px solid var(--bg); }
+  .ev .marker svg{ width:13px; height:13px; }
+  .m-changed{ background:var(--changed-bg); color:var(--changed); } .m-base{ background:var(--ok-bg); color:var(--ok); }
+  .m-rejected{ background:var(--removed-bg); color:var(--removed); } .m-new{ background:var(--new-bg); color:var(--new); } .m-neutral{ background:var(--surface-3); color:var(--text-3); }
+  .ev .card{ flex:1; min-width:0; border:1px solid var(--border); border-radius:11px; background:var(--surface-1); padding:13px 16px; }
+  .ev.thin .card{ background:transparent; border-style:dashed; padding:9px 16px; }
+  .ev .toprow{ display:flex; align-items:center; gap:10px; }
+  .ev .toprow .t{ font-size:13.5px; font-weight:600; color:var(--text-1); }
+  .ev .toprow .when{ margin-left:auto; font-size:11.5px; color:var(--text-3); font-family:var(--mono); white-space:nowrap; }
+  .ev .sub{ font-size:12.5px; color:var(--text-2); margin-top:5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .ev .sub .hash{ font-family:var(--mono); color:var(--text-2); } .ev .sub .br{ display:inline-flex; align-items:center; gap:5px; }
+  .ev .sub .br svg{ width:12px; height:12px; color:var(--text-3); }
+  .who{ display:inline-flex; align-items:center; gap:6px; } .who .ava{ width:18px; height:18px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:600; color:#fff; }
+  .diffpill{ font-family:var(--mono); font-size:11.5px; color:var(--changed); background:var(--changed-bg); border:1px solid rgba(224,165,62,.25); border-radius:6px; padding:1px 7px; }
+
+  .baselinechg{ display:flex; align-items:center; gap:14px; margin-top:12px; }
+  .baselinechg .col{ } .baselinechg .col .cl{ font-size:10.5px; color:var(--text-3); text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+  .baselinechg .thumb{ width:128px; height:92px; border-radius:8px; overflow:hidden; border:1px solid var(--border-strong); background:#0b0b0d; position:relative; }
+  .baselinechg .thumb img{ width:100%; position:absolute; top:0; left:0; }
+  .baselinechg .arr{ color:var(--text-3); } .baselinechg .arr svg{ width:20px; height:20px; }
+  .actions{ display:flex; gap:8px; margin-top:12px; }
+  .actions .btn{ height:28px; font-size:12px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor"/></svg></div>
+    <a title="Сборки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></a>
+    <a class="active" title="Тесты"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3"/><path d="M8 3h8M9.5 13h5"/></svg></a>
+    <a title="Снимки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></a>
+    <div class="sp"></div>
+    <div class="ava">МК</div>
+  </aside>
+
+  <main class="main">
+    <div class="hd">
+      <div class="crumb"><a href="testtree.html">Тесты</a> <span class="sl">/</span> <span>checkout-mobile.spec.ts</span> <span class="sl">›</span> <span>Checkout flow</span> <span class="sl">›</span> <span>Payment step</span></div>
+      <div class="titlerow">
+        <h1>applies promo code</h1>
+        <span class="status status--changed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg> Изменено · 3.47%</span>
+        <span class="status status--changed" style="color:var(--changed);background:var(--changed-bg)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg> Нестабильный</span>
+        <div class="spacer"></div>
+        <span class="mono" style="font-size:12px;color:var(--text-3)">promo-applied.png · 390×844</span>
+        <a href="review.html"><button class="btn btn--primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Открыть сравнение</button></a>
+      </div>
+    </div>
+
+    <div class="body"><div class="wrap">
+
+      <div class="stats">
+        <div class="stat"><div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>Всего прогонов</div><div class="num">142</div><div class="sub">с 12 марта</div></div>
+        <div class="stat amber"><div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Нестабильность</div><div class="num">4%</div><div class="sub">6 из 142 прогонов</div></div>
+        <div class="stat"><div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Последнее изменение</div><div class="num">8м</div><div class="sub">a1b9f3c · ожидает</div></div>
+        <div class="stat"><div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Возраст базы</div><div class="num">12д</div><div class="sub">принята Мирой Кан</div></div>
+      </div>
+
+      <div class="panel">
+        <div class="ph">
+          <h2>Тренд различий · последние 28 прогонов</h2>
+          <div class="leg"><span><i style="background:var(--ok)"></i>без изм.</span><span><i style="background:var(--changed)"></i>изменено</span><span><i style="background:var(--removed)"></i>отклонено</span><span><i style="background:var(--new)"></i>новый</span></div>
+        </div>
+        <div class="chart">
+          <div class="bars" id="bars">
+            <div class="thline" style="bottom:20%"></div><div class="thlabel" style="bottom:20%">порог 0.20</div>
+          </div>
+          <div class="axis"><span>28 прогонов назад</span><span>сегодня</span></div>
+        </div>
+      </div>
+
+      <h2 style="font-size:14px;font-weight:600;margin:0 0 16px">События</h2>
+      <div class="feed" id="feed"></div>
+
+    </div></div>
+  </main>
+</div>
+
+<script>
+  // trend bars: [status, height%]
+  const trend = [
+    ['n',26],['p',7],['p',6],['p',8],['p',7],['p',9],['c',31],['p',8],['p',7],['p',6],['r',44],['p',9],['p',7],['p',8],
+    ['p',6],['p',7],['c',24],['p',9],['p',8],['p',7],['p',6],['p',8],['p',7],['p',9],['c',22],['p',8],['p',7],['c',47]
+  ];
+  // baseline-update markers at these indexes (flag)
+  const flags = new Set([0,10,16]);
+  const barsEl = document.getElementById('bars');
+  trend.forEach(([s,h],i)=>{
+    const cls = s==='c'?'changed':s==='r'?'rejected':s==='n'?'new':'';
+    const col = document.createElement('div'); col.className='bcol';
+    col.innerHTML = `${flags.has(i)?'<svg class="flag" viewBox="0 0 24 24" fill="currentColor"><path d="M4 22V4h13l-2 4 2 4H6"/></svg>':''}<div class="bar ${cls}" style="height:${h}%"></div>`;
+    barsEl.appendChild(col);
+  });
+
+  const events = [
+    {type:'changed', t:'Обнаружено изменение', when:'8 минут назад', hash:'a1b9f3c', branch:'feat/checkout-redesign',
+      diff:'3.47%', state:'ожидает проверки', who:null, actions:true,
+      note:'Добавлена строка промокода в блоке «Order summary» — высота снимка выросла на 60px.'},
+    {type:'base', t:'Базовая линия обновлена', when:'2 дня назад', hash:'e7c2d10', branch:'main',
+      who:['Мира Кан','МК','#5b6ee0'], baseline:true},
+    {type:'rejected', t:'Изменение отклонено', when:'5 дней назад', hash:'9d1f4a7', branch:'feat/checkout-redesign',
+      who:['Тео Реймс','ТР','#c2683a'], note:'Иконка способа оплаты сместилась на 2px — это регрессия, а не намеренное изменение.'},
+    {type:'neutral', t:'18 прогонов без изменений', when:'5–11 дней назад', thin:true},
+    {type:'new', t:'Снимок создан', when:'12 дней назад', hash:'418c0a1', branch:'feat/checkout-mvp',
+      who:['Ари Лунд','АЛ','#3a8f6b'], note:'Первичная базовая линия зафиксирована вместе с PR #418.'},
+  ];
+  const mIcon = {
+    changed:'<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+    base:'<path d="M20 6 9 17l-5-5"/>', rejected:'<path d="M18 6 6 18M6 6l12 12"/>',
+    new:'<path d="M12 5v14M5 12h14"/>', neutral:'<circle cx="12" cy="12" r="3"/>',
+  };
+  function brs(b){ return `<span class="br"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 6a9 9 0 0 1-9 9"/><circle cx="18" cy="6" r="3"/></svg>${b}</span>`; }
+  function who(w){ return w?`<span class="who"><span class="ava" style="background:${w[2]}">${w[1]}</span>${w[0]}</span>`:''; }
+
+  document.getElementById('feed').innerHTML = events.map(e=>{
+    const sub = [];
+    if(e.hash) sub.push(`<span class="hash">${e.hash}</span>`);
+    if(e.branch) sub.push(brs(e.branch));
+    if(e.diff) sub.push(`<span class="diffpill">${e.diff}</span>`);
+    if(e.state) sub.push(`<span style="color:var(--changed)">${e.state}</span>`);
+    if(e.who) sub.push(who(e.who));
+    const baseline = e.baseline ? `
+      <div class="baselinechg">
+        <div class="col"><div class="cl">было</div><div class="thumb"><img src="assets/baseline.png"></div></div>
+        <div class="arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="col"><div class="cl" style="color:var(--ok)">стало (принято)</div><div class="thumb" style="border-color:rgba(79,181,138,.5)"><img src="assets/new.png"></div></div>
+      </div>` : '';
+    const actions = e.actions ? `<div class="actions"><a href="review.html"><button class="btn btn--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Принять</button></a><a href="review.html"><button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg> Отклонить</button></a></div>` : '';
+    return `<div class="ev ${e.thin?'thin':''}">
+      <div class="marker m-${e.type}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">${mIcon[e.type]}</svg></div>
+      <div class="card">
+        <div class="toprow"><span class="t">${e.t}</span><span class="when">${e.when}</span></div>
+        ${sub.length?`<div class="sub">${sub.join('<span style="color:var(--text-3)">·</span>')}</div>`:''}
+        ${e.note?`<div style="font-size:12.5px;color:var(--text-2);margin-top:8px;line-height:1.55">${e.note}</div>`:''}
+        ${baseline}${actions}
+      </div>
+    </div>`;
+  }).join('');
+</script>
+</body>
+</html>

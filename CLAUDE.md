@@ -35,7 +35,9 @@
   OpenAPI 3.1) · **pgx/v5 + sqlc + Atlas** · **River** (Postgres-транзакционная очередь)
 - Diff: pure-Go **orisano/pixelmatch + image/png** (`CGO_ENABLED=0`); libvips — за seam'ом, не в v1
 - Storage: **S3-совместимое** (MinIO для self-host), CAS по sha256 (по *декодированным* пикселям)
-- Frontend: **Angular** (standalone + signals), **Angular CDK**
+- Frontend: **Angular** (standalone + signals), **Angular CDK**. Дизайн-референс (макеты + дизайн-система,
+  тёмная тема `#0E0E10`/акцент `#6E8AFA`, Geist) — `docs/design/` (индекс: `docs/design/PIXELA-DESIGN.md`).
+  Прибегай к нему при любой вёрстке/UI (Фаза 4+).
 - Playwright: custom **reporter** (`@pixela/playwright-reporter`, TS) + тонкий SDK; контракт-типы генерятся
   из OpenAPI бэка (`openapi-typescript` → `packages/shared`)
 - Redis: **только dashboard-сессии** (не очередь). Infra: **Docker Compose** + **Traefik**

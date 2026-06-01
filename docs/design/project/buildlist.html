@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Pixela — Сборки</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  html,body{ height:100%; overflow:hidden; }
+  .shell{ height:100vh; display:flex; background:var(--bg); }
+
+  /* sidebar */
+  .side{ width:212px; flex:0 0 212px; border-right:1px solid var(--border); background:var(--surface-1);
+    display:flex; flex-direction:column; }
+  .side .brand{ height:52px; display:flex; align-items:center; gap:9px; padding:0 16px; border-bottom:1px solid var(--border); }
+  .logo{ width:22px; height:22px; border-radius:6px; background:var(--accent);
+    display:flex; align-items:center; justify-content:center; }
+  .logo svg{ width:14px; height:14px; color:var(--accent-fg); }
+  .brand .name{ font-weight:600; font-size:15px; letter-spacing:-.01em; }
+  .proj{ margin:12px 10px 6px; padding:8px 10px; border-radius:7px; background:var(--surface-2); border:1px solid var(--border);
+    display:flex; align-items:center; gap:9px; cursor:pointer; }
+  .proj:hover{ background:var(--surface-3); }
+  .proj .sq{ width:18px; height:18px; border-radius:5px; background:linear-gradient(135deg,#6E8AFA,#9d7bf0); flex:0 0 auto; }
+  .proj .pn{ font-size:13px; font-weight:550; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .proj .cv{ color:var(--text-3); }
+  .nav{ padding:8px 10px; display:flex; flex-direction:column; gap:2px; }
+  .nav a{ display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; border-radius:6px;
+    color:var(--text-2); font-size:13px; font-weight:500; text-decoration:none; }
+  .nav a svg{ width:16px; height:16px; }
+  .nav a:hover{ background:var(--surface-2); color:var(--text-1); text-decoration:none; }
+  .nav a.active{ background:var(--accent-bg); color:var(--accent-2); }
+  .nav .badge{ margin-left:auto; font-size:11px; font-family:var(--mono); background:var(--surface-3); color:var(--text-2);
+    border-radius:5px; padding:1px 6px; }
+  .side .foot{ margin-top:auto; padding:10px; border-top:1px solid var(--border); display:flex; align-items:center; gap:9px; }
+  .side .foot .ava{ width:26px; height:26px; border-radius:50%; background:#5b6ee0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; }
+  .side .foot .un{ font-size:13px; font-weight:550; } .side .foot .ue{ font-size:11px; color:var(--text-3); }
+
+  /* main */
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .topbar{ height:52px; flex:0 0 52px; display:flex; align-items:center; gap:14px; padding:0 22px; border-bottom:1px solid var(--border); }
+  .topbar h1{ margin:0; font-size:16px; font-weight:600; letter-spacing:-.01em; white-space:nowrap; }
+  .topbar .sub{ font-size:12.5px; color:var(--text-3); white-space:nowrap; }
+  .topbar .spacer{ flex:1; }
+
+  .filters{ height:48px; flex:0 0 48px; display:flex; align-items:center; gap:10px; padding:0 22px; border-bottom:1px solid var(--border); }
+  .search{ display:flex; align-items:center; gap:8px; height:32px; padding:0 11px; border-radius:7px;
+    background:var(--surface-inset); border:1px solid var(--border); width:260px; color:var(--text-3); font-size:13px; }
+  .search svg{ width:15px; height:15px; }
+  .fbtn{ display:flex; align-items:center; gap:7px; height:32px; padding:0 11px; border-radius:7px; background:var(--surface-2);
+    border:1px solid var(--border); color:var(--text-2); font-size:13px; font-weight:500; cursor:pointer; }
+  .fbtn:hover{ background:var(--surface-3); color:var(--text-1); }
+  .fbtn svg{ width:14px; height:14px; }
+  .filters .spacer{ flex:1; }
+
+  .list{ flex:1; overflow:auto; }
+  .row{ display:grid; grid-template-columns:198px 150px minmax(0,1fr) 168px 54px; align-items:center; gap:16px;
+    padding:0 22px; height:62px; border-bottom:1px solid var(--border-faint); cursor:pointer; transition:background .1s; }
+  .row:hover{ background:var(--surface-1); }
+  .row .branchcell{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .row .branchcell .bn{ display:flex; align-items:center; gap:6px; font-size:13.5px; font-weight:550; color:var(--text-1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row .branchcell .bn svg{ width:13px; height:13px; color:var(--text-3); flex:0 0 auto; }
+  .row .branchcell .meta{ display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--text-3); }
+  .row .branchcell .meta .hash{ font-family:var(--mono); color:var(--text-2); cursor:copy; }
+  .row .branchcell .meta .hash:hover{ color:var(--accent-2); }
+  .counts{ display:flex; align-items:center; gap:6px; flex-wrap:nowrap; overflow:hidden; }
+  .who{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-2); white-space:nowrap; min-width:0; }
+  .who .nm{ overflow:hidden; text-overflow:ellipsis; }
+  .who .ava{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:600; color:#fff; flex:0 0 auto; }
+  .when{ font-size:12px; color:var(--text-3); font-family:var(--mono); text-align:right; }
+  .dur{ font-size:12px; color:var(--text-3); font-family:var(--mono); }
+
+  .spin{ animation:spin 1s linear infinite; } @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* empty */
+  .empty{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:40px; text-align:center; }
+  .empty .ic{ width:56px; height:56px; border-radius:14px; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--text-3); }
+  .empty .ic svg{ width:26px; height:26px; }
+  .empty h2{ margin:0; font-size:17px; font-weight:600; }
+  .empty p{ margin:0; max-width:360px; font-size:13.5px; color:var(--text-2); line-height:1.6; }
+  .empty .cmd{ margin-top:4px; font-family:var(--mono); font-size:12.5px; color:var(--text-2); background:var(--surface-inset);
+    border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
+  .empty .cmd .pr{ color:var(--text-3); }
+
+  /* skeleton */
+  .sk{ background:linear-gradient(90deg,var(--surface-2) 25%,var(--surface-3) 37%,var(--surface-2) 63%); background-size:400% 100%;
+    animation:shimmer 1.4s ease infinite; border-radius:5px; }
+  @keyframes shimmer{ 0%{ background-position:100% 0; } 100%{ background-position:-100% 0; } }
+  @media (prefers-reduced-motion:reduce){ .sk,.spin{ animation:none; } }
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor"/></svg></span><span class="name">Pixela</span></div>
+    <div class="proj"><span class="sq"></span><span class="pn">acme/storefront</span><span class="cv"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></span></div>
+    <nav class="nav">
+      <a href="#" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg> Сборки <span class="badge">12</span></a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg> Снимки</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Базовые линии</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Настройки</a>
+    </nav>
+    <div class="foot"><span class="ava">МК</span><div><div class="un">Мира Кан</div><div class="ue">mira@acme.dev</div></div></div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <h1>Сборки</h1>
+      <span class="sub">Лента прогонов CI · ветка → сравнение с базой</span>
+      <div class="spacer"></div>
+      <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> Обновить</button>
+    </div>
+    <div class="filters">
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Поиск по коммиту…</div>
+      <button class="fbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 6a9 9 0 0 1-9 9"/><circle cx="18" cy="6" r="3"/></svg> Ветка <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+      <button class="fbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-10 10.01-3-3"/></svg> Статус <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
+      <div class="spacer"></div>
+      <span style="font-size:12px;color:var(--text-3);font-family:var(--mono);white-space:nowrap">8 прогонов</span>
+    </div>
+    <div class="list" id="list"></div>
+  </main>
+</div>
+
+<script>
+  const state = new URLSearchParams(location.search).get('state') || 'data';
+
+  const icons = {
+    review:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    passed:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg>',
+    rejected:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    error:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+    comparing:'<svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/></svg>',
+  };
+  const labels = { review:'Нужна проверка', passed:'Пройдено', rejected:'Отклонено', error:'Ошибка', comparing:'Сравнение' };
+  function badge(s){ return `<span class="status status--${s}">${icons[s]} ${labels[s]}</span>`; }
+  function counts(c){
+    let h='';
+    if(c.unchanged) h+=`<span class="chip chip--ok"><span class="dot"></span><b>${c.unchanged}</b></span>`;
+    if(c.changed) h+=`<span class="chip chip--changed"><span class="dot"></span><b>${c.changed}</b> изм.</span>`;
+    if(c.new) h+=`<span class="chip chip--new"><span class="dot"></span><b>${c.new}</b> нов.</span>`;
+    if(c.removed) h+=`<span class="chip chip--removed"><span class="dot"></span><b>${c.removed}</b> уд.</span>`;
+    return `<div class="counts">${h||'<span style="font-size:12px;color:var(--text-3)">—</span>'}</div>`;
+  }
+  const builds = [
+    {branch:'feat/checkout-redesign', hash:'a1b9f3c', status:'review', counts:{unchanged:480,changed:12,new:3,removed:1}, who:['Jordan Avery','JA','#5b6ee0'], dur:'2м 14с', when:'8 мин', link:true},
+    {branch:'main', hash:'e7c2d10', status:'passed', counts:{unchanged:496}, who:['CI bot','CI','#3a3a44'], dur:'1м 58с', when:'1 ч', link:true},
+    {branch:'fix/nav-focus-ring', hash:'3f9a0b2', status:'passed', counts:{unchanged:495,changed:0}, who:['Mira Kan','МК','#5b6ee0'], dur:'2м 02с', when:'3 ч', link:true},
+    {branch:'feat/dark-mode-tokens', hash:'b40c8e1', status:'review', counts:{unchanged:471,changed:22,new:6}, who:['Theo Rames','ТР','#c2683a'], dur:'2м 40с', when:'5 ч', link:true},
+    {branch:'chore/deps-bump', hash:'9d1f4a7', status:'comparing', counts:{}, who:['CI bot','CI','#3a3a44'], dur:'—', when:'сейчас', link:false},
+    {branch:'feat/pricing-table', hash:'5e8b3c9', status:'rejected', counts:{unchanged:488,changed:8}, who:['Ari Lund','АЛ','#3a8f6b'], dur:'2м 11с', when:'вчера', link:true},
+    {branch:'hotfix/safari-grid', hash:'c2a7f50', status:'error', counts:{}, who:['CI bot','CI','#3a3a44'], dur:'сбой', when:'вчера', link:false},
+    {branch:'release/2.4.0', hash:'71be9d3', status:'passed', counts:{unchanged:496}, who:['CI bot','CI','#3a3a44'], dur:'2м 05с', when:'2 дн', link:true},
+  ];
+
+  const list = document.getElementById('list');
+  if(state==='empty'){
+    list.innerHTML = `<div class="empty">
+      <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg></div>
+      <h2>Пока нет ни одной сборки</h2>
+      <p>Подключите CI, чтобы Pixela начал получать снимки Playwright и сравнивать их с базовой линией после каждого прогона.</p>
+      <div class="cmd"><span class="pr">$ </span>npx pixela upload --project acme/storefront ./test-results</div>
+      <div style="display:flex;gap:10px;margin-top:6px"><button class="btn btn--primary">Подключить CI</button><button class="btn">Документация</button></div>
+    </div>`;
+  } else if(state==='loading'){
+    let h='';
+    for(let i=0;i<7;i++){
+      const w=120+Math.round(Math.random()*40);
+      h+=`<div class="row" style="cursor:default">
+        <div style="display:flex;flex-direction:column;gap:7px"><div class="sk" style="height:13px;width:${w}px"></div><div class="sk" style="height:10px;width:80px"></div></div>
+        <div class="sk" style="height:22px;width:130px;border-radius:999px"></div>
+        <div style="display:flex;gap:6px"><div class="sk" style="height:22px;width:48px;border-radius:6px"></div><div class="sk" style="height:22px;width:58px;border-radius:6px"></div></div>
+        <div class="sk" style="height:22px;width:22px;border-radius:50%"></div>
+        <div class="sk" style="height:11px;width:42px;margin-left:auto"></div>
+      </div>`;
+    }
+    list.innerHTML = h;
+  } else {
+    list.innerHTML = builds.map(b=>`
+      <div class="row">
+        <div class="branchcell">
+          <div class="bn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 6a9 9 0 0 1-9 9"/><circle cx="18" cy="6" r="3"/></svg>${b.branch}</div>
+          <div class="meta"><span class="hash" title="Скопировать">${b.hash}</span>${b.link?' · <span>CI #'+(1400+Math.floor(Math.random()*99))+'</span>':''}</div>
+        </div>
+        ${badge(b.status)}
+        ${counts(b.counts)}
+        <div class="who"><span class="ava" style="background:${b.who[2]}">${b.who[1]}</span><span class="nm">${b.who[0]}</span> <span class="dur">· ${b.dur}</span></div>
+        <div class="when">${b.when}</div>
+      </div>`).join('');
+    // click-to-copy hashes
+    list.querySelectorAll('.hash').forEach(el=> el.addEventListener('click',(e)=>{ e.stopPropagation(); const t=el.textContent; el.textContent='скопировано'; setTimeout(()=>el.textContent=t,900); }));
+  }
+</script>
+</body>
+</html>

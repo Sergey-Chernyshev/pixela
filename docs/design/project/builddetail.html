@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Pixela — Детали сборки</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  html,body{ height:100%; overflow:hidden; }
+  .shell{ height:100vh; display:flex; background:var(--bg); }
+  .side{ width:212px; flex:0 0 212px; border-right:1px solid var(--border); background:var(--surface-1); display:flex; flex-direction:column; }
+  .side .brand{ height:52px; display:flex; align-items:center; gap:9px; padding:0 16px; border-bottom:1px solid var(--border); }
+  .logo{ width:22px; height:22px; border-radius:6px; background:var(--accent); display:flex; align-items:center; justify-content:center; }
+  .logo svg{ width:14px; height:14px; color:var(--accent-fg); }
+  .brand .name{ font-weight:600; font-size:15px; letter-spacing:-.01em; }
+  .nav{ padding:8px 10px; display:flex; flex-direction:column; gap:2px; margin-top:6px; }
+  .nav a{ display:flex; align-items:center; gap:10px; height:32px; padding:0 10px; border-radius:6px; color:var(--text-2); font-size:13px; font-weight:500; text-decoration:none; }
+  .nav a svg{ width:16px; height:16px; } .nav a.active{ background:var(--accent-bg); color:var(--accent-2); } .nav a:hover{ background:var(--surface-2); color:var(--text-1); text-decoration:none; }
+  .side .foot{ margin-top:auto; padding:10px; border-top:1px solid var(--border); display:flex; align-items:center; gap:9px; }
+  .side .foot .ava{ width:26px; height:26px; border-radius:50%; background:#5b6ee0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; color:#fff; }
+  .side .foot .un{ font-size:13px; font-weight:550; } .side .foot .ue{ font-size:11px; color:var(--text-3); }
+
+  .main{ flex:1; display:flex; flex-direction:column; min-width:0; }
+  .dhead{ flex:0 0 auto; padding:16px 24px 14px; border-bottom:1px solid var(--border); }
+  .dhead .crumb{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-3); margin-bottom:10px; }
+  .dhead .crumb a{ color:var(--text-2); } .dhead .crumb .here{ color:var(--text-2); }
+  .dhead .titlerow{ display:flex; align-items:center; gap:14px; }
+  .dhead h1{ margin:0; font-size:19px; font-weight:600; letter-spacing:-.01em; display:flex; align-items:center; gap:9px; }
+  .dhead h1 svg{ width:17px; height:17px; color:var(--text-3); }
+  .dmeta{ display:flex; align-items:center; gap:18px; margin-top:11px; font-size:12.5px; color:var(--text-2); flex-wrap:wrap; }
+  .dmeta .it{ display:flex; align-items:center; gap:7px; } .dmeta .it .ava{ width:20px; height:20px; border-radius:50%; background:#5b6ee0; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:600; color:#fff; }
+  .dmeta .hash{ font-family:var(--mono); color:var(--text-1); }
+  .dmeta svg{ width:14px; height:14px; color:var(--text-3); }
+
+  .actionrow{ flex:0 0 auto; min-height:50px; display:flex; align-items:center; gap:12px; padding:8px 24px; border-bottom:1px solid var(--border); background:var(--surface-1); flex-wrap:wrap; }
+  .summary{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .actionrow .spacer{ flex:1; min-width:8px; }
+  .toggle{ display:flex; align-items:center; gap:9px; font-size:13px; color:var(--text-2); cursor:pointer; user-select:none; white-space:nowrap; }
+  .sw{ width:36px; height:21px; border-radius:999px; background:var(--surface-3); border:1px solid var(--border); position:relative; transition:background .15s; flex:0 0 auto; }
+  .sw::after{ content:""; position:absolute; top:2px; left:2px; width:15px; height:15px; border-radius:50%; background:var(--text-2); transition:transform .15s,background .15s; }
+  .toggle.on .sw{ background:var(--accent); border-color:transparent; } .toggle.on .sw::after{ transform:translateX(15px); background:#fff; }
+
+  .grid{ flex:1; overflow:auto; padding:20px 24px 40px; display:grid; grid-template-columns:repeat(auto-fill,minmax(216px,1fr)); grid-auto-rows:244px; gap:18px; align-content:start; }
+  .card{ border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface-1); cursor:pointer; transition:border-color .12s, transform .12s; display:flex; flex-direction:column; }
+  .card:hover{ border-color:var(--border-strong); transform:translateY(-1px); }
+  /* full-page screenshot thumbnail: fixed height (aspect-ratio collapses grid rows),
+     image top-aligned so the changed region + its diff overlay stay visible */
+  .thumb{ flex:0 0 206px; height:206px; position:relative; overflow:hidden; background:#0b0b0d; border-bottom:1px solid var(--border); }
+  .thumb .shot{ position:absolute; top:0; left:0; width:100%; height:auto; display:block; }
+  .thumb .dband{ position:absolute; top:0; left:0; width:100%; height:auto; display:block; opacity:0; }
+  .card.changed .thumb .dband{ opacity:.85; }
+  .thumb .rib{ position:absolute; top:8px; left:8px; z-index:2; }
+  .thumb .fade{ position:absolute; left:0; right:0; bottom:0; height:46px; background:linear-gradient(to top, var(--surface-1), transparent); z-index:1; pointer-events:none; }
+  .card.removed .thumb .shot{ filter:grayscale(1) brightness(.45); }
+  .card.unchanged .thumb .shot{ opacity:.82; }
+  .cardfoot{ flex:0 0 auto; padding:9px 11px; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .cardfoot .nm{ font-size:12.5px; font-weight:550; font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cardfoot .pct{ font-size:11.5px; font-family:var(--mono); color:var(--changed); flex:0 0 auto; }
+  .card.new .cardfoot .pct{ color:var(--new); } .card.removed .cardfoot .pct{ color:var(--removed); }
+  .selbar{ position:absolute; top:8px; right:8px; width:20px; height:20px; border-radius:5px; border:1px solid var(--border-strong); background:rgba(11,11,13,.7); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5" fill="currentColor"/></svg></span><span class="name">Pixela</span></div>
+    <nav class="nav">
+      <a href="#" class="active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg> Сборки</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg> Снимки</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Базовые линии</a>
+      <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Настройки</a>
+    </nav>
+    <div class="foot"><span class="ava">МК</span><div><div class="un">Мира Кан</div><div class="ue">mira@acme.dev</div></div></div>
+  </aside>
+
+  <main class="main">
+    <div class="dhead">
+      <div class="crumb"><a href="#">Сборки</a> <span>/</span> <span class="here">feat/checkout-redesign</span></div>
+      <div class="titlerow">
+        <h1><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 6a9 9 0 0 1-9 9"/><circle cx="18" cy="6" r="3"/></svg> feat/checkout-redesign</h1>
+        <span class="status status--review"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg> Нужна проверка</span>
+      </div>
+      <div class="dmeta">
+        <span class="it"><span class="hash">a1b9f3c</span></span>
+        <span class="it"><span class="ava">JA</span> Jordan Avery</span>
+        <span class="it"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> 8 минут назад · 2м 14с</span>
+        <span class="it"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14 21 3"/></svg> <a href="#">CI #1487</a></span>
+      </div>
+    </div>
+
+    <div class="actionrow">
+      <div class="summary">
+        <span class="chip chip--ok"><span class="dot"></span><b>480</b> без изм.</span>
+        <span class="chip chip--changed"><span class="dot"></span><b>12</b> изменено</span>
+        <span class="chip chip--new"><span class="dot"></span><b>3</b> новых</span>
+        <span class="chip chip--removed"><span class="dot"></span><b>1</b> удалён</span>
+      </div>
+      <div class="spacer"></div>
+      <div class="toggle on" id="onlyChanged"><span class="sw"></span> Только изменённые</div>
+      <button class="btn btn--danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg> Отклонить все</button>
+      <button class="btn btn--ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Принять все</button>
+    </div>
+
+    <div class="grid" id="grid"></div>
+  </main>
+</div>
+
+<script>
+  const BASE='assets/baseline.png', NEW='assets/new.png', DIFF='assets/diff.png';
+  const shots = [
+    {n:'checkout-mobile', st:'changed', pct:'3.47%'},
+    {n:'pricing-table',   st:'changed', pct:'5.10%'},
+    {n:'checkout-desktop',st:'changed', pct:'1.82%'},
+    {n:'modal-confirm',   st:'changed', pct:'2.20%'},
+    {n:'product-card',    st:'changed', pct:'0.94%'},
+    {n:'toast-success',   st:'changed', pct:'0.41%'},
+    {n:'nav-header',      st:'new',     pct:'нов.'},
+    {n:'empty-cart',      st:'new',     pct:'нов.'},
+    {n:'promo-banner',    st:'new',     pct:'нов.'},
+    {n:'search-overlay',  st:'removed', pct:'уд.'},
+    {n:'footer-links',    st:'unchanged'},
+    {n:'account-settings',st:'unchanged'},
+    {n:'sidebar-rail',    st:'unchanged'},
+    {n:'order-history',   st:'unchanged'},
+  ];
+  const stMap = {
+    changed:{cls:'changed', badge:`<span class="status status--changed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg> Изменено</span>`},
+    new:{cls:'new', badge:`<span class="status status--new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg> Новый</span>`},
+    removed:{cls:'removed', badge:`<span class="status status--removed"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14"/></svg> Удалён</span>`},
+    unchanged:{cls:'unchanged', badge:`<span class="status status--unchanged"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> Без изм.</span>`},
+  };
+  const grid = document.getElementById('grid');
+  function card(s){
+    const m=stMap[s.st];
+    // changed → show the NEW capture so the 880px-tall diff overlay aligns exactly
+    const img = (s.st==='new' || s.st==='changed') ? NEW : BASE;
+    const dband = s.st==='changed' ? `<img class="dband" src="${DIFF}">` : '';
+    const pct = s.pct ? `<span class="pct">${s.pct}</span>` : '';
+    return `<div class="card ${m.cls}">
+      <div class="thumb"><img class="shot" src="${img}">${dband}<span class="rib">${m.badge}</span><span class="fade"></span></div>
+      <div class="cardfoot"><span class="nm">${s.n}</span>${pct}</div>
+    </div>`;
+  }
+  function render(onlyChanged){
+    const items = onlyChanged ? shots.filter(s=>s.st!=='unchanged') : shots;
+    grid.innerHTML = items.map(card).join('');
+  }
+  let only=true; render(only);
+  const tog=document.getElementById('onlyChanged');
+  tog.addEventListener('click',()=>{ only=!only; tog.classList.toggle('on',only); render(only); });
+</script>
+</body>
+</html>

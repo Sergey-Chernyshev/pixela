@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixela — Сравнение</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  html,body{ height:100%; overflow:hidden; }
+  .app{ height:100vh; display:flex; flex-direction:column; background:var(--bg); }
+
+  /* ---------- app bar ---------- */
+  .appbar{
+    height:48px; flex:0 0 48px; display:flex; align-items:center; gap:12px;
+    padding:0 14px; border-bottom:1px solid var(--border); background:var(--surface-1);
+  }
+  .crumb{ display:flex; align-items:center; gap:8px; min-width:0; white-space:nowrap; }
+  .crumb .back{ color:var(--text-2); }
+  .crumb .branch{ font-size:13px; color:var(--text-2); display:flex; align-items:center; gap:6px; }
+  .crumb .sep{ color:var(--text-3); }
+  .crumb .hash{ font-size:12.5px; color:var(--text-2); }
+  .crumb .file{ font-size:13px; font-weight:550; color:var(--text-1); }
+  .appbar .spacer{ flex:1; }
+  .progress{ display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--text-2); }
+  .progress .count{ color:var(--text-1); font-weight:600; }
+  .navbtns{ display:flex; gap:4px; }
+
+  /* ---------- toolbar ---------- */
+  .toolbar{
+    height:44px; flex:0 0 44px; display:flex; align-items:center; gap:12px;
+    padding:0 14px; border-bottom:1px solid var(--border); background:var(--surface-1);
+  }
+  .toolbar .spacer{ flex:1; }
+  .zoomgrp{ display:flex; align-items:center; gap:4px; }
+  .zoomlabel{ font-family:var(--mono); font-size:12px; color:var(--text-2); min-width:46px; text-align:center; }
+  .divider{ width:1px; height:22px; background:var(--border); }
+  .toolhint{ font-size:12px; color:var(--text-3); display:flex; align-items:center; gap:6px; }
+
+  /* ---------- main ---------- */
+  .main{ flex:1; display:flex; min-height:0; }
+  .stage{ flex:1; position:relative; background:
+      radial-gradient(circle at 50% 40%, #131318 0%, var(--surface-inset) 70%);
+      min-width:0; overflow:hidden; }
+  .stage::before{ /* faint grid in the well */
+    content:""; position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(255,255,255,.018) 1px,transparent 1px);
+    background-size:28px 28px;
+  }
+
+  /* 2-up */
+  .twoup{ position:absolute; inset:0; display:flex; gap:1px; }
+  .pane{ flex:1; min-width:0; position:relative; display:flex; flex-direction:column; }
+  .pane-head{ height:30px; flex:0 0 30px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 12px; font-size:11.5px; color:var(--text-2); border-bottom:1px solid var(--border-faint);
+    background:rgba(0,0,0,0.25); backdrop-filter:blur(4px); position:relative; z-index:2; }
+  .pane-head .lbl{ display:flex; align-items:center; gap:7px; font-weight:600; letter-spacing:.02em; text-transform:uppercase; font-size:10.5px; }
+  .pane-head .dim{ font-family:var(--mono); color:var(--text-3); font-size:11px; }
+  .pane-scroll{ flex:1; overflow:auto; position:relative; }
+  .pane-pad{ padding:22px; display:flex; justify-content:center; min-height:min-content; }
+  .imgwrap{ position:relative; flex:0 0 auto; box-shadow:0 6px 30px rgba(0,0,0,0.5); }
+  .imgwrap img.screenshot{ display:block; image-rendering:auto; border:1px solid var(--border-strong); }
+  .imgwrap .diffov{ position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .15s; }
+  .imgwrap .diffov img{ display:block; width:100%; height:100%; }
+  .imgwrap.show-diff .diffov{ opacity:1; }
+  .vline{ width:1px; background:var(--border); }
+
+  /* onion */
+  .onion{ position:absolute; inset:0; overflow:auto; }
+  .onion-pad{ min-height:min-content; display:flex; justify-content:center; padding:26px; }
+  .onion-stack{ position:relative; flex:0 0 auto; box-shadow:0 6px 30px rgba(0,0,0,0.5); border:1px solid var(--border-strong); }
+  .onion-stack img{ display:block; }
+  .onion-stack .top{ position:absolute; inset:0; }
+  .onion-stack .top img{ width:100%; height:100%; }
+  .onion-stack .diffov{ position:absolute; inset:0; opacity:0; transition:opacity .15s; pointer-events:none; }
+  .onion-stack .diffov img{ width:100%; height:100%; }
+  .onion-stack.show-diff .diffov{ opacity:1; }
+
+  /* slider/curtain */
+  .curtain{ position:absolute; inset:0; overflow:auto; }
+  .curtain-pad{ min-height:min-content; display:flex; justify-content:center; padding:26px; }
+  .curtain-stack{ position:relative; flex:0 0 auto; box-shadow:0 6px 30px rgba(0,0,0,0.5); border:1px solid var(--border-strong); user-select:none; }
+  .curtain-stack img{ display:block; }
+  .curtain-stack .top{ position:absolute; inset:0; overflow:hidden; }
+  .curtain-stack .top img{ width:100%; height:100%; }
+  .curtain-stack .diffov{ position:absolute; inset:0; opacity:0; pointer-events:none; }
+  .curtain-stack .diffov img{ width:100%; height:100%; }
+  .curtain-stack.show-diff .diffov{ opacity:1; }
+  .handle{ position:absolute; top:0; bottom:0; width:2px; background:var(--accent); transform:translateX(-1px); cursor:ew-resize; z-index:3; }
+  .handle::before{ content:""; position:absolute; top:0; bottom:0; left:-9px; right:-9px; }
+  .handle .grip{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:26px; height:26px; border-radius:50%; background:var(--accent); color:var(--accent-fg);
+    display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.5); }
+  .curtain-lbl{ position:absolute; top:10px; z-index:4; font-size:10.5px; font-weight:700; letter-spacing:.04em;
+    text-transform:uppercase; padding:3px 8px; border-radius:5px; background:rgba(0,0,0,.55); backdrop-filter:blur(4px); }
+
+  /* floating opacity slider for onion */
+  .floatctl{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); z-index:5;
+    display:flex; align-items:center; gap:11px; height:38px; padding:0 14px;
+    background:rgba(20,20,24,0.86); backdrop-filter:blur(10px); border:1px solid var(--border-strong);
+    border-radius:999px; box-shadow:0 8px 28px rgba(0,0,0,0.5); font-size:11.5px; color:var(--text-2); }
+  .floatctl .ttl{ font-weight:600; color:var(--text-1); }
+  .floatctl input[type=range]{ width:150px; }
+  .floatctl .val{ font-family:var(--mono); min-width:34px; text-align:right; color:var(--text-1); }
+
+  input[type=range]{ -webkit-appearance:none; appearance:none; height:4px; border-radius:3px;
+    background:linear-gradient(90deg,var(--accent) var(--fill,50%), rgba(255,255,255,0.14) var(--fill,50%)); outline:none; }
+  input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:#fff; border:2px solid var(--accent); cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.4); }
+
+  .diffbadge{ position:absolute; top:10px; right:12px; z-index:5; display:flex; align-items:center; gap:7px;
+    font-size:11px; color:var(--text-2); background:rgba(20,20,24,0.8); backdrop-filter:blur(6px);
+    border:1px solid var(--border); border-radius:7px; padding:5px 9px; }
+  .diffbadge .sw{ width:10px; height:10px; border-radius:3px; }
+
+  /* ---------- metadata panel ---------- */
+  .meta{ width:300px; flex:0 0 300px; border-left:1px solid var(--border); background:var(--surface-1);
+    display:flex; flex-direction:column; overflow:auto; }
+  .meta-sec{ padding:16px 18px; border-bottom:1px solid var(--border); }
+  .meta-sec h3{ margin:0 0 12px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-3); }
+  .kv{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; padding:5px 0; font-size:13px; }
+  .kv .k{ color:var(--text-2); flex:1 1 auto; min-width:0; }
+  .kv .v{ color:var(--text-1); font-weight:500; text-align:right; white-space:nowrap; flex:0 0 auto; }
+  .kv .v.mono{ font-size:12.5px; }
+  .dimdelta{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12.5px; }
+  .dimdelta .from{ color:var(--text-2); }
+  .dimdelta .arrow{ color:var(--text-3); }
+  .dimdelta .to{ color:var(--changed); font-weight:600; }
+  .ratio-row{ display:flex; align-items:center; gap:10px; }
+  .ratio-big{ font-family:var(--mono); font-size:26px; font-weight:600; color:var(--changed); letter-spacing:-.02em; }
+  .ratio-bar{ flex:1; height:6px; border-radius:3px; background:var(--surface-3); overflow:hidden; }
+  .ratio-bar i{ display:block; height:100%; background:var(--changed); border-radius:3px; }
+
+  .hist{ display:flex; flex-direction:column; gap:0; }
+  .hist-item{ display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border-faint); }
+  .hist-item:last-child{ border-bottom:0; }
+  .ava{ width:24px; height:24px; flex:0 0 24px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:600; color:#fff; }
+  .hist-item .who{ font-size:12.5px; color:var(--text-1); font-weight:550; }
+  .hist-item .what{ font-size:12px; color:var(--text-2); }
+  .hist-item .when{ font-size:11px; color:var(--text-3); margin-left:auto; white-space:nowrap; font-family:var(--mono); }
+
+  /* ---------- action bar ---------- */
+  .actionbar{ height:64px; flex:0 0 64px; display:flex; align-items:center; gap:14px;
+    padding:0 16px; border-top:1px solid var(--border); background:var(--surface-1); }
+  .actionbar .hints{ display:flex; align-items:center; gap:14px; font-size:12px; color:var(--text-3); }
+  .actionbar .hints .h{ display:flex; align-items:center; gap:6px; }
+  .actionbar .spacer{ flex:1; }
+  .bigbtn{ height:40px; padding:0 22px; font-size:14px; border-radius:8px; gap:9px; }
+  .bigbtn kbd{ background:rgba(0,0,0,0.25); border-color:rgba(0,0,0,0.3); color:inherit; opacity:.8; }
+  .btn--ok kbd{ color:#06140E; }
+  .flaky{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--changed);
+    background:var(--changed-bg); border:1px solid rgba(224,165,62,0.3); border-radius:7px; padding:5px 10px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- APP BAR -->
+  <header class="appbar">
+    <div class="crumb">
+      <span class="back iconbtn" title="К сборке (Esc)" style="border:0;background:transparent;width:26px;height:26px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </span>
+      <span class="branch">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 6a9 9 0 0 1-9 9"/><circle cx="18" cy="6" r="3"/></svg>
+        feat/checkout-redesign
+      </span>
+      <span class="sep">/</span>
+      <span class="hash mono">a1b9f3c</span>
+      <span class="sep">/</span>
+      <span class="file mono">checkout-mobile.spec.ts</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="progress">
+      <span>Изменение <span class="count">3</span> из <span class="count">12</span></span>
+      <div class="navbtns">
+        <button class="iconbtn" title="Предыдущее (←)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+        <button class="iconbtn" title="Следующее (→)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="seg" id="modeseg">
+      <button data-mode="side" aria-pressed="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>
+        Рядом <kbd style="margin-left:2px">2</kbd>
+      </button>
+      <button data-mode="onion" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="6"/><circle cx="15" cy="12" r="6"/></svg>
+        Onion <kbd style="margin-left:2px">1</kbd>
+      </button>
+      <button data-mode="slider" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="1"/><path d="M12 4v16"/></svg>
+        Шторка
+      </button>
+    </div>
+    <button class="iconbtn" id="diffbtn" title="Наложение различий (3)" style="width:auto;padding:0 11px;gap:7px;font-size:12.5px;font-weight:550">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18"/><path d="M12 3a9 9 0 0 0 0 18"/><path d="M12 3a9 9 0 0 1 0 18" fill="currentColor" fill-opacity=".25"/></svg>
+      Различия <kbd>3</kbd>
+    </button>
+
+    <div class="spacer"></div>
+
+    <button class="iconbtn" id="synclock" aria-pressed="true" title="Синхронный зум и панорама">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    </button>
+    <div class="divider"></div>
+    <div class="zoomgrp">
+      <button class="iconbtn" id="zoomout" title="Уменьшить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></button>
+      <span class="zoomlabel" id="zoomlabel">Fit</span>
+      <button class="iconbtn" id="zoomin" title="Увеличить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+    </div>
+    <button class="btn" id="fitbtn" style="height:30px">По ширине</button>
+    <button class="btn" id="onetoone" style="height:30px">1:1</button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <section class="stage" id="stage"></section>
+
+    <aside class="meta">
+      <div class="meta-sec">
+        <h3>Снимок</h3>
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+          <span class="status status--changed">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+            Изменено
+          </span>
+          <span class="flaky" title="Этот тест помечен как нестабильный">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            Нестабильный
+          </span>
+        </div>
+        <div class="kv"><span class="k">Файл</span><span class="v mono">checkout-mobile</span></div>
+        <div class="kv"><span class="k">Браузер</span><span class="v">Chromium 124</span></div>
+        <div class="kv"><span class="k">Вьюпорт</span><span class="v mono">390 × 844</span></div>
+      </div>
+
+      <div class="meta-sec">
+        <h3>Различия</h3>
+        <div class="ratio-row" style="margin-bottom:12px">
+          <span class="ratio-big">3.47<span style="font-size:16px">%</span></span>
+          <div class="ratio-bar"><i style="width:34%"></i></div>
+        </div>
+        <div class="kv"><span class="k">Изменённых пикселей</span><span class="v mono">29 336 px</span></div>
+        <div class="kv"><span class="k">Порог</span><span class="v mono">0.20</span></div>
+        <div class="kv" style="align-items:center"><span class="k">Размер</span>
+          <span class="v"><span class="dimdelta"><span class="from">960×820</span><span class="arrow">→</span><span class="to">960×880</span></span></span>
+        </div>
+        <div style="margin-top:8px;font-size:11.5px;color:var(--text-3);line-height:1.5">
+          Высота выросла на 60px — новая строка промокода. Сравнение по верхнему левому краю, без растяжения.
+        </div>
+      </div>
+
+      <div class="meta-sec" style="flex:1">
+        <h3>История</h3>
+        <div class="hist">
+          <div class="hist-item">
+            <span class="ava" style="background:#5b6ee0">МК</span>
+            <div><div class="who">Мира Кан</div><div class="what">приняла базовый снимок</div></div>
+            <span class="when">2 дн</span>
+          </div>
+          <div class="hist-item">
+            <span class="ava" style="background:#c2683a">ТР</span>
+            <div><div class="who">Тео Реймс</div><div class="what">отклонил · сдвиг иконки</div></div>
+            <span class="when">5 дн</span>
+          </div>
+          <div class="hist-item">
+            <span class="ava" style="background:#3a8f6b">АЛ</span>
+            <div><div class="who">Ари Лунд</div><div class="what">приняла · перенос с #418</div></div>
+            <span class="when">6 дн</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ACTION BAR -->
+  <footer class="actionbar">
+    <div class="hints">
+      <span class="h"><kbd>A</kbd> принять</span>
+      <span class="h"><kbd>R</kbd> отклонить</span>
+      <span class="h"><kbd>←</kbd><kbd>→</kbd> навигация</span>
+      <span class="h"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> режимы</span>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn btn--danger bigbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 6 6 18M6 6l12 12"/></svg> Отклонить <kbd>R</kbd></button>
+    <button class="btn btn--ok bigbtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Принять <kbd>A</kbd></button>
+  </footer>
+</div>
+
+<script>
+  const BASE = 'assets/baseline.png', NEW = 'assets/new.png', DIFF = 'assets/diff.png';
+  const NW = 960, NHb = 820, NHn = 880;
+  const params = new URLSearchParams(location.search);
+  const state = {
+    mode: params.get('mode') || 'side',
+    diff: params.get('diff') === '1',
+    zoom: 0,          // 0 = fit-to-width sentinel; >0 = explicit scale
+    onion: 0.5,
+    curtain: 0.5,
+    sync: true,
+  };
+  const stage = document.getElementById('stage');
+
+  function fitScale(paneW){ return Math.max(0.1, (paneW - 56) / NW); }
+
+  function render(){
+    const showDiff = state.diff ? 'show-diff' : '';
+    if(state.mode === 'side'){
+      stage.innerHTML = `
+        <div class="twoup">
+          <div class="pane">
+            <div class="pane-head"><span class="lbl"><span style="width:7px;height:7px;border-radius:50%;background:var(--text-3)"></span>Эталон</span><span class="dim">960 × 820</span></div>
+            <div class="pane-scroll" id="paneL"><div class="pane-pad"><div class="imgwrap ${showDiff}" id="wrapL"><img class="screenshot" src="${BASE}"></div></div></div>
+          </div>
+          <div class="vline"></div>
+          <div class="pane">
+            <div class="pane-head"><span class="lbl"><span style="width:7px;height:7px;border-radius:50%;background:var(--changed)"></span>Новый</span><span class="dim">960 × 880</span></div>
+            <div class="pane-scroll" id="paneR"><div class="pane-pad"><div class="imgwrap ${showDiff}" id="wrapR"><img class="screenshot" src="${NEW}"><div class="diffov"><img src="${DIFF}"></div></div></div></div>
+          </div>
+        </div>`;
+      if(state.diff) addDiffBadge();
+      applyScale();
+      syncScroll(document.getElementById('paneL'), document.getElementById('paneR'));
+    }
+    else if(state.mode === 'onion'){
+      stage.innerHTML = `
+        <div class="onion" id="onionScroll">
+          <div class="onion-pad"><div class="onion-stack ${showDiff}" id="onionStack">
+            <img class="screenshot" src="${BASE}">
+            <div class="top" id="onionTop"><img src="${NEW}"></div>
+            <div class="diffov"><img src="${DIFF}"></div>
+          </div></div>
+        </div>
+        <div class="floatctl">
+          <span class="ttl">Эталон</span>
+          <input type="range" id="onionRange" min="0" max="100" value="${state.onion*100}">
+          <span class="ttl" style="color:var(--changed)">Новый</span>
+          <span class="val" id="onionVal">${Math.round(state.onion*100)}%</span>
+        </div>`;
+      if(state.diff) addDiffBadge();
+      applyScale();
+      const r = document.getElementById('onionRange'), top = document.getElementById('onionTop'), val = document.getElementById('onionVal');
+      const upd = ()=>{ const v=r.value/100; top.style.opacity=v; val.textContent=Math.round(v*100)+'%'; r.style.setProperty('--fill', r.value+'%'); state.onion=v; };
+      r.style.setProperty('--fill', r.value+'%'); top.style.opacity=state.onion; r.addEventListener('input', upd);
+    }
+    else if(state.mode === 'slider'){
+      stage.innerHTML = `
+        <div class="curtain" id="curtainScroll">
+          <div class="curtain-pad"><div class="curtain-stack ${showDiff}" id="curtainStack">
+            <img class="screenshot base" src="${BASE}">
+            <div class="curtain-lbl" style="left:10px;background:rgba(0,0,0,.55)">Эталон</div>
+            <div class="top" id="curtainTop"><img src="${NEW}"></div>
+            <div class="curtain-lbl" id="newLbl" style="color:var(--changed)">Новый</div>
+            <div class="diffov"><img src="${DIFF}"></div>
+            <div class="handle" id="curtainHandle"><div class="grip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 6 4 12l5 6M15 6l5 6-5 6"/></svg></div></div>
+          </div></div>
+        </div>`;
+      if(state.diff) addDiffBadge();
+      applyScale();
+      setupCurtain();
+    }
+  }
+
+  function addDiffBadge(){
+    const b = document.createElement('div');
+    b.className = 'diffbadge';
+    b.innerHTML = `<span class="sw" style="background:#ff28aa"></span>Изменено <span class="sw" style="background:#22c55e;margin-left:6px"></span>Добавлено`;
+    stage.appendChild(b);
+  }
+
+  function curWidth(){
+    // available pane width for fit calc
+    const stageW = stage.clientWidth;
+    return state.mode === 'side' ? (stageW/2) : stageW;
+  }
+  function applyScale(){
+    const s = state.zoom > 0 ? state.zoom : fitScale(curWidth());
+    document.querySelectorAll('.imgwrap, .onion-stack, .curtain-stack').forEach(w=>{
+      w.style.width = (NW*s)+'px';
+      const imgs = w.querySelectorAll('img');
+      imgs.forEach(im=>{ if(im.classList.contains('screenshot')||im.parentElement.classList.contains('top')){ im.style.width=(NW*s)+'px'; im.style.height='auto'; }});
+    });
+    // for diff overlays which are 100% of wrap, ensure wrap height matches new image
+    document.getElementById('zoomlabel').textContent = state.zoom>0 ? Math.round(s*100)+'%' : 'Fit';
+  }
+
+  function syncScroll(a,b){
+    if(!a||!b) return;
+    let lock=false;
+    const mk=(src,dst)=>()=>{ if(!state.sync||lock) return; lock=true; dst.scrollTop=src.scrollTop; dst.scrollLeft=src.scrollLeft; lock=false; };
+    a.addEventListener('scroll', mk(a,b)); b.addEventListener('scroll', mk(b,a));
+  }
+
+  function setupCurtain(){
+    const stackEl=document.getElementById('curtainStack'), top=document.getElementById('curtainTop'),
+          handle=document.getElementById('curtainHandle'), newLbl=document.getElementById('newLbl');
+    function setPos(p){
+      p=Math.max(0,Math.min(1,p)); state.curtain=p;
+      top.style.clipPath = `inset(0 0 0 ${p*100}%)`;
+      handle.style.left = (p*100)+'%';
+      newLbl.style.left = 'calc('+(p*100)+'% + 10px)';
+    }
+    setPos(state.curtain);
+    let drag=false;
+    const onMove=(e)=>{ if(!drag) return; const r=stackEl.getBoundingClientRect(); setPos((e.clientX-r.left)/r.width); };
+    handle.addEventListener('pointerdown',(e)=>{ drag=true; handle.setPointerCapture(e.pointerId); e.preventDefault(); });
+    window.addEventListener('pointermove',onMove);
+    window.addEventListener('pointerup',()=>drag=false);
+  }
+
+  // ---- toolbar wiring ----
+  function setMode(m){
+    state.mode=m;
+    document.querySelectorAll('#modeseg button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.mode===m));
+    render();
+  }
+  document.querySelectorAll('#modeseg button').forEach(b=> b.addEventListener('click',()=>setMode(b.dataset.mode)));
+  document.getElementById('diffbtn').addEventListener('click', function(){ state.diff=!state.diff; this.setAttribute('aria-pressed', state.diff); render(); });
+  document.getElementById('diffbtn').setAttribute('aria-pressed', state.diff);
+  document.getElementById('synclock').addEventListener('click', function(){ state.sync=!state.sync; this.setAttribute('aria-pressed', state.sync); });
+  document.getElementById('zoomin').addEventListener('click', ()=>{ const cur=state.zoom>0?state.zoom:fitScale(curWidth()); state.zoom=Math.min(3,cur*1.25); applyScale(); });
+  document.getElementById('zoomout').addEventListener('click', ()=>{ const cur=state.zoom>0?state.zoom:fitScale(curWidth()); state.zoom=Math.max(0.15,cur/1.25); applyScale(); });
+  document.getElementById('fitbtn').addEventListener('click', ()=>{ state.zoom=0; applyScale(); });
+  document.getElementById('onetoone').addEventListener('click', ()=>{ state.zoom=1; applyScale(); });
+
+  // keyboard
+  window.addEventListener('keydown',(e)=>{
+    if(e.key==='1') setMode('onion');
+    else if(e.key==='2') setMode('side');
+    else if(e.key==='3'){ state.diff=!state.diff; document.getElementById('diffbtn').setAttribute('aria-pressed',state.diff); render(); }
+  });
+
+  // sync toolbar to initial state (matters for ?mode= / ?diff= presets)
+  document.querySelectorAll('#modeseg button').forEach(b=> b.setAttribute('aria-pressed', b.dataset.mode===state.mode));
+  document.getElementById('diffbtn').setAttribute('aria-pressed', state.diff);
+
+  render();
+  window.addEventListener('resize', ()=>{ if(state.zoom===0) applyScale(); });
+</script>
+</body>
+</html>

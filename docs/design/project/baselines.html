@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Pixela — Базовые линии</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="ds-components.css">
+<link rel="stylesheet" href="app-shell.css">
+<style>
+  html,body{ height:100%; overflow:hidden; }
+  .branchbar{ display:flex; align-items:center; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
+  .branchtab{ display:flex; align-items:center; gap:8px; height:34px; padding:0 13px; border-radius:8px; cursor:pointer;
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text-2); font-size:13px; font-weight:500; transition:background .12s,color .12s; }
+  .branchtab svg{ width:14px; height:14px; color:var(--text-3); }
+  .branchtab .c{ font-family:var(--mono); font-size:11px; color:var(--text-3); background:var(--surface-inset); border-radius:5px; padding:1px 6px; }
+  .branchtab:hover{ background:var(--surface-3); color:var(--text-1); }
+  .branchtab.active{ background:var(--accent-bg); color:var(--accent-2); border-color:rgba(110,138,250,.3); }
+  .branchtab.active svg{ color:var(--accent-2); } .branchtab.active .c{ color:var(--accent-2); background:rgba(110,138,250,.16); }
+  .branchtab .def{ font-size:10px; font-weight:600; color:var(--ok); background:var(--ok-bg); border:1px solid rgba(79,181,138,.3); border-radius:5px; padding:1px 6px; }
+
+  .blhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .blhead .info{ font-size:13px; color:var(--text-2); } .blhead .info b{ color:var(--text-1); }
+
+  .blgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(228px,1fr)); gap:16px; }
+  .bl{ border:1px solid var(--border); border-radius:12px; background:var(--surface-1); overflow:hidden; transition:border-color .12s; }
+  .bl:hover{ border-color:var(--border-strong); }
+  .bl .img{ height:150px; background:#0b0b0d; border-bottom:1px solid var(--border); position:relative; overflow:hidden; }
+  .bl .img img{ position:absolute; top:0; left:0; width:100%; }
+  .bl .img .br{ position:absolute; top:8px; left:8px; }
+  .bl .img .age{ position:absolute; top:8px; right:8px; font-size:10.5px; font-family:var(--mono); color:var(--text-2); background:rgba(11,11,13,.7); backdrop-filter:blur(4px); border:1px solid var(--border); border-radius:6px; padding:2px 7px; }
+  .bl .meta{ padding:11px 13px; }
+  .bl .meta .nm{ font-size:13px; font-weight:600; font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .bl .meta .det{ font-size:11.5px; color:var(--text-3); font-family:var(--mono); margin-top:3px; }
+  .bl .by{ display:flex; align-items:center; gap:8px; padding:9px 13px; border-top:1px solid var(--border-faint); }
+  .bl .by .ava{ width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:600; color:#fff; flex:0 0 auto; }
+  .bl .by .who{ font-size:11.5px; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+  .bl .by .acts{ display:flex; gap:4px; }
+  .bl.stale .img .age{ color:var(--changed); border-color:rgba(224,165,62,.4); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side" id="projside"></aside>
+  <main class="main">
+    <div class="topbar">
+      <div class="htitle"><h1>Базовые линии</h1><span class="sub">Storefront · принятые эталоны по веткам</span></div>
+      <div class="spacer"></div>
+      <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Поиск по снимку…</div>
+      <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.2-8.5"/><path d="M21 3v6h-6"/></svg> Сравнить ветки</button>
+    </div>
+    <div class="body">
+      <div class="summary">
+        <div class="scard"><div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>Базовых линий</div><div class="num">496</div><div class="sub">на ветке main</div></div>
+        <div class="scard"><div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>Обновлено за неделю</div><div class="num">31</div><div class="sub">5 участниками</div></div>
+        <div class="scard"><div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Средний возраст</div><div class="num">18<span style="font-size:15px">д</span></div><div class="sub">с последнего принятия</div></div>
+        <div class="scard amber"><div class="lab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>Устаревших</div><div class="num">7</div><div class="sub">старше 90 дней</div></div>
+      </div>
+
+      <div class="branchbar" id="branchbar"></div>
+
+      <div class="blhead">
+        <div class="info">Ветка <b id="curbranch">main</b> · <span id="curcount">12</span> эталонов показано</div>
+        <div class="seg"><button aria-pressed="true">Все</button><button aria-pressed="false">Недавние</button><button aria-pressed="false">Устаревшие</button></div>
+      </div>
+      <div class="blgrid" id="blgrid"></div>
+    </div>
+  </main>
+</div>
+
+<script src="project-shell.js"></script>
+<script>
+  renderProjSide('baselines');
+  const BASE='assets/baseline.png', NEW='assets/new.png';
+  const branches = [
+    ['main','main',496,true],
+    ['feat/checkout-redesign','feat/checkout-redesign',484,false],
+    ['feat/dark-mode-tokens','feat/dark-mode-tokens',471,false],
+    ['release/2.4.0','release/2.4.0',496,false],
+  ];
+  const snaps = [
+    {n:'checkout-mobile', vp:'390×844', br:'Chromium', who:['Мира Кан','МК','#5b6ee0'], age:'2 дн', img:NEW},
+    {n:'checkout-desktop', vp:'1440×900', br:'Chromium', who:['Мира Кан','МК','#5b6ee0'], age:'2 дн', img:BASE},
+    {n:'pricing-table', vp:'1440×900', br:'Firefox', who:['Ари Лунд','АЛ','#3a8f6b'], age:'6 дн', img:BASE},
+    {n:'nav-header', vp:'390×844', br:'WebKit', who:['Тео Реймс','ТР','#c2683a'], age:'8 дн', img:BASE},
+    {n:'product-card', vp:'1440×900', br:'Chromium', who:['Jordan Avery','JA','#7a5bd0'], age:'14 дн', img:NEW},
+    {n:'modal-confirm', vp:'1440×900', br:'Chromium', who:['Мира Кан','МК','#5b6ee0'], age:'21 дн', img:BASE},
+    {n:'footer-links', vp:'1440×900', br:'Chromium', who:['Ари Лунд','АЛ','#3a8f6b'], age:'34 дн', img:BASE},
+    {n:'empty-cart', vp:'390×844', br:'WebKit', who:['Jordan Avery','JA','#7a5bd0'], age:'112 дн', img:BASE, stale:true},
+  ];
+
+  const brbar = document.getElementById('branchbar');
+  function renderBranches(active){
+    brbar.innerHTML = branches.map(([id,label,count,isDef])=>`
+      <div class="branchtab ${id===active?'active':''}" data-b="${id}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M6 9v6"/><path d="M18 6a9 9 0 0 1-9 9"/><circle cx="18" cy="6" r="3"/></svg>
+        ${label} ${isDef?'<span class="def">по умолчанию</span>':''} <span class="c">${count}</span>
+      </div>`).join('');
+    brbar.querySelectorAll('.branchtab').forEach(t=> t.addEventListener('click',()=>{ document.getElementById('curbranch').textContent=t.dataset.b; renderBranches(t.dataset.b); }));
+  }
+  renderBranches('main');
+
+  document.getElementById('curcount').textContent = snaps.length;
+  document.getElementById('blgrid').innerHTML = snaps.map(s=>`
+    <div class="bl ${s.stale?'stale':''}">
+      <div class="img">
+        <img src="${s.img}">
+        <span class="br"><span class="status status--approved" style="font-size:11px;height:20px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Эталон</span></span>
+        <span class="age">${s.age}</span>
+      </div>
+      <div class="meta"><div class="nm">${s.n}</div><div class="det">${s.br} · ${s.vp}</div></div>
+      <div class="by">
+        <span class="ava" style="background:${s.who[2]}">${s.who[1]}</span>
+        <span class="who">${s.who[0]}</span>
+        <span class="acts">
+          <button class="iconbtn" style="width:26px;height:26px" title="История" onclick="location.href='testhistory.html'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></button>
+          <button class="iconbtn" style="width:26px;height:26px" title="Сбросить базу"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-6.2 2.5L3 8"/><path d="M3 3v5h5"/></svg></button>
+        </span>
+      </div>
+    </div>`).join('');
+
+  document.querySelectorAll('.blhead .seg button').forEach(b=> b.addEventListener('click',()=>{ document.querySelectorAll('.blhead .seg button').forEach(x=>x.setAttribute('aria-pressed', x===b)); }));
+</script>
+</body>
+</html>
