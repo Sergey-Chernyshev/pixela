@@ -1,0 +1,13 @@
+# Build context hygiene for the web image (context = repo root). Keep host node_modules / build
+# artifacts out so pnpm reinstalls cleanly inside the image (correct platform binaries) and the
+# context stays small. The Go API image uses its own apps/api/.dockerignore.
+**/node_modules
+**/dist
+**/out-tsc
+**/.angular
+.git
+.github
+**/*.log
+**/.DS_Store
+# the web image does not need the Go backend sources
+apps/api

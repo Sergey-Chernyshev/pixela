@@ -34,7 +34,13 @@ type Config struct {
 	RedisURL Secret `env:"REDIS_URL,required,notEmpty"`
 
 	// Object storage (S3-compatible / MinIO) — content-addressable blobs.
-	S3Endpoint       string `env:"S3_ENDPOINT,required,notEmpty"`
+	S3Endpoint string `env:"S3_ENDPOINT,required,notEmpty"`
+	// S3PublicEndpoint is the browser-reachable object-store origin used ONLY to sign presigned GET URLs
+	// (the dashboard fetches blobs directly). Empty ⇒ falls back to S3Endpoint. The split matters behind
+	// docker/NAT: the API reaches MinIO internally (S3_ENDPOINT=http://minio:9000) while the browser must
+	// use a published host (S3_PUBLIC_ENDPOINT=http://localhost:9000); the presigned signature is bound to
+	// the public host so it validates when the browser hits it.
+	S3PublicEndpoint string `env:"S3_PUBLIC_ENDPOINT"`
 	S3Region         string `env:"S3_REGION" envDefault:"us-east-1"`
 	S3Bucket         string `env:"S3_BUCKET" envDefault:"pixela"`
 	S3AccessKey      Secret `env:"S3_ACCESS_KEY,required,notEmpty"`

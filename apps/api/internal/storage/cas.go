@@ -48,7 +48,8 @@ func (s *Store) Put(ctx context.Context, key string, data []byte) error {
 // PresignedGetURL returns a short-lived URL the dashboard can use to read a blob directly, without
 // the API proxying bytes and without exposing object-store credentials (rulebook §7; spec §10).
 func (s *Store) PresignedGetURL(ctx context.Context, key string, ttl time.Duration) (string, error) {
-	u, err := s.client.PresignedGetObject(ctx, s.bucket, key, ttl, url.Values{})
+	// Sign with the public-endpoint client so the URL host is browser-reachable (see Store.presign).
+	u, err := s.presign.PresignedGetObject(ctx, s.bucket, key, ttl, url.Values{})
 	if err != nil {
 		return "", fmt.Errorf("presign get %q: %w", key, err)
 	}

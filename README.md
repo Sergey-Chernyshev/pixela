@@ -26,6 +26,25 @@ docker-compose.dev.yml            local infra: postgres + redis (sessions) + min
 - **Node 22** + **pnpm 10** (`corepack enable`) — for `apps/web` and the TS packages
 - **Docker** + Docker Compose v2 — local infra and the Testcontainers integration smoke
 
+## One-command demo
+
+Bring the whole stack up — Postgres, Redis, MinIO, migrations, a seeded demo dataset, the API, the
+diff worker, and the dashboard behind nginx — with a single command, then open the browser:
+
+```bash
+docker compose up --build           # add -d to run detached
+```
+
+- Dashboard: **http://localhost:8080**
+- Log in with the credentials printed by the `seed` service:
+  **`demo@pixela.dev`** / **`pixela-demo`**
+
+The seed populates one project (`acme-storefront`) with two builds, snapshots across every status
+(changed / new / unchanged / removed) with real thumbnails, baselines, members and an activity feed —
+so the dashboard is populated out of the box. Host ports are overridable via `.env` (`PIXELA_*_PORT`);
+`docker compose down -v` removes the volumes. (For Go API hot-reload during development, use the
+infra-only `docker-compose.dev.yml` and the `## Quick start (dev)` flow below instead.)
+
 ## Quick start (dev)
 
 ```bash

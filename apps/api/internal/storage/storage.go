@@ -35,20 +35,26 @@ var _ core.HealthChecker = (*Store)(nil)
 // Config is the object-store connection configuration. Endpoint may include a scheme
 // (http:// or https://) — New strips it and derives UseSSL accordingly (see New).
 type Config struct {
-	Endpoint  string
-	Region    string
-	Bucket    string
-	AccessKey string
-	SecretKey string
-	UseSSL    bool
+	Endpoint string
+	// PublicEndpoint is the browser-reachable origin used only to SIGN presigned GET URLs. Empty ⇒ same
+	// as Endpoint. See config.S3PublicEndpoint for the docker/NAT rationale.
+	PublicEndpoint string
+	Region         string
+	Bucket         string
+	AccessKey      string
+	SecretKey      string
+	UseSSL         bool
 }
 
 // Store wraps a MinIO client bound to a single bucket. Construct it with New; it satisfies
-// core.HealthChecker. The zero value is not usable.
+// core.HealthChecker. The zero value is not usable. `presign` is a second client whose endpoint is the
+// public (browser-reachable) host — used only by PresignedGetURL so the signature binds to that host;
+// it equals `client` when no public endpoint is configured.
 type Store struct {
-	client *minio.Client
-	bucket string
-	log    *slog.Logger
+	client  *minio.Client
+	presign *minio.Client
+	bucket  string
+	log     *slog.Logger
 }
 
 // New builds a MinIO client and ensures the target bucket exists.
@@ -73,10 +79,26 @@ func New(ctx context.Context, cfg Config, log *slog.Logger) (*Store, error) {
 		return nil, fmt.Errorf("new minio client: %w", err)
 	}
 
+	// Presign client: same credentials, but bound to the public (browser-reachable) endpoint so the
+	// signed Host matches what the browser requests. Falls back to the ops client when unset/identical.
+	presign := client
+	if cfg.PublicEndpoint != "" && cfg.PublicEndpoint != cfg.Endpoint {
+		pubHost, pubSecure := normalizeEndpoint(cfg.PublicEndpoint, cfg.UseSSL)
+		presign, err = minio.New(pubHost, &minio.Options{
+			Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
+			Secure: pubSecure,
+			Region: cfg.Region,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("new minio presign client: %w", err)
+		}
+	}
+
 	s := &Store{
-		client: client,
-		bucket: cfg.Bucket,
-		log:    log,
+		client:  client,
+		presign: presign,
+		bucket:  cfg.Bucket,
+		log:     log,
 	}
 
 	if err := s.ensureBucket(ctx, cfg.Region); err != nil {

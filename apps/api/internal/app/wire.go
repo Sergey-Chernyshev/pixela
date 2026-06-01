@@ -34,12 +34,13 @@ func wire(ctx context.Context, cfg config.Config, log *slog.Logger) (*deps, erro
 	}
 
 	store, err := storage.New(ctx, storage.Config{
-		Endpoint:  cfg.S3Endpoint,
-		Region:    cfg.S3Region,
-		Bucket:    cfg.S3Bucket,
-		AccessKey: cfg.S3AccessKey.Reveal(),
-		SecretKey: cfg.S3SecretKey.Reveal(),
-		UseSSL:    cfg.S3UseSSL,
+		Endpoint:       cfg.S3Endpoint,
+		PublicEndpoint: cfg.S3PublicEndpoint,
+		Region:         cfg.S3Region,
+		Bucket:         cfg.S3Bucket,
+		AccessKey:      cfg.S3AccessKey.Reveal(),
+		SecretKey:      cfg.S3SecretKey.Reveal(),
+		UseSSL:         cfg.S3UseSSL,
 	}, log)
 	if err != nil {
 		_ = rc.Close()

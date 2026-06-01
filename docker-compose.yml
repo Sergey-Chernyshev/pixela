@@ -1,0 +1,143 @@
+# Pixela — full local stack in ONE command:
+#
+#     docker compose up --build           # foreground (Ctrl-C stops)
+#     docker compose up --build -d        # detached
+#
+# Brings up postgres + redis + minio, runs migrations and seeds a demo dataset, starts the API + diff
+# worker, and serves the dashboard behind nginx. Then open  http://localhost:8080  and log in with the
+# credentials printed by the `seed` service (demo@pixela.dev / pixela-demo).
+#
+# Host ports are overridable via .env (PIXELA_*_PORT) so Pixela runs alongside other local stacks.
+# For dev with hot-reload of the Go API instead, use docker-compose.dev.yml (infra only).
+name: pixela
+
+# Shared API/worker/seed environment. Inside the compose network services reach each other by name
+# (postgres / redis / minio). S3_PUBLIC_ENDPOINT is the BROWSER-reachable MinIO origin used only to sign
+# presigned image URLs — it must be the published host:port, not the internal `minio:9000`.
+x-api-env: &api-env
+  DATABASE_URL: postgresql://pixela:pixela@postgres:5432/pixela
+  REDIS_URL: redis://redis:6379
+  S3_ENDPOINT: http://minio:9000
+  S3_PUBLIC_ENDPOINT: http://localhost:${PIXELA_MINIO_PORT:-9000}
+  S3_REGION: us-east-1
+  S3_BUCKET: pixela
+  S3_ACCESS_KEY: pixela
+  S3_SECRET_KEY: pixela-secret
+  S3_USE_SSL: "false"
+  S3_FORCE_PATH_STYLE: "true"
+  SESSION_SECRET: pixela-demo-session-secret-change-me-please-32b
+  PIXELA_ENV: development
+  CORS_ORIGIN: http://localhost:${PIXELA_WEB_PORT:-8080}
+  PORT: "3000"
+  IMAGE_MAX_BYTES: "10485760"
+  PRESIGNED_TTL_SECONDS: "3600"
+  LOG_LEVEL: info
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: pixela
+      POSTGRES_PASSWORD: pixela
+      POSTGRES_DB: pixela
+    ports:
+      - '${PIXELA_PG_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pixela']
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:7
+    ports:
+      - '${PIXELA_REDIS_PORT:-6379}:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: pixela
+      MINIO_ROOT_PASSWORD: pixela-secret
+    ports:
+      - '${PIXELA_MINIO_PORT:-9000}:9000'
+      - '${PIXELA_MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/ready']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-shot: apply schema + River tables, then exit.
+  migrate:
+    build:
+      context: ./apps/api
+    image: pixela-api
+    command: ['migrate']
+    environment: *api-env
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # One-shot: populate a demo project/builds/snapshots + a demo user (idempotent). Prints credentials.
+  seed:
+    image: pixela-api
+    command: ['seed-demo']
+    environment: *api-env
+    restart: 'no'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+
+  api:
+    image: pixela-api
+    command: ['serve']
+    environment: *api-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  worker:
+    image: pixela-api
+    command: ['worker']
+    environment: *api-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: pixela-web
+    ports:
+      - '${PIXELA_WEB_PORT:-8080}:80'
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  miniodata:
