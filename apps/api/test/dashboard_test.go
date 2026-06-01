@@ -132,8 +132,18 @@ func TestPhase4Dashboard(t *testing.T) {
 	if len(projects) != 1 {
 		t.Fatalf("alice projects = %d, want 1 (proj-a only)", len(projects))
 	}
-	if p0 := projects[0].(map[string]any); p0["slug"] != "proj-a" || p0["role"] != "OWNER" {
+	p0 := projects[0].(map[string]any)
+	if p0["slug"] != "proj-a" || p0["role"] != "OWNER" {
 		t.Fatalf("project[0] = %v, want slug proj-a role OWNER", p0)
+	}
+	// Enriched overview aggregates (all computed in SQL from the seeded rows, none fabricated):
+	// one REVIEW_REQUIRED build → openReviews 1; alice is the sole member → memberCount 1; the latest
+	// build has 4 snapshots, 1 UNCHANGED → health 1/4; last build status REVIEW_REQUIRED.
+	if !numEq(p0["openReviews"], 1) || !numEq(p0["memberCount"], 1) {
+		t.Fatalf("overview openReviews=%v memberCount=%v, want 1/1", p0["openReviews"], p0["memberCount"])
+	}
+	if !numEq(p0["healthOk"], 1) || !numEq(p0["healthTotal"], 4) || p0["lastBuildStatus"] != "REVIEW_REQUIRED" {
+		t.Fatalf("overview health=%v/%v lastStatus=%v, want 1/4 REVIEW_REQUIRED", p0["healthOk"], p0["healthTotal"], p0["lastBuildStatus"])
 	}
 
 	// (7) Build feed: one build, per-status snapshot counts computed in SQL.
@@ -165,8 +175,22 @@ func TestPhase4Dashboard(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("build detail: got %d (%s)", code, body)
 	}
-	if snaps := arr(t, obj(t, body)["snapshots"]); len(snaps) != 4 {
-		t.Fatalf("build detail snapshots = %d, want 4", len(snaps))
+	detailSnaps := arr(t, obj(t, body)["snapshots"])
+	if len(detailSnaps) != 4 {
+		t.Fatalf("build detail snapshots = %d, want 4", len(detailSnaps))
+	}
+	// The CHANGED card carries a presigned thumbnail trio (baseline+new+diff) — real images, not omitted.
+	var changedCard map[string]any
+	for _, s := range detailSnaps {
+		if m := s.(map[string]any); m["status"] == "CHANGED" {
+			changedCard = m
+		}
+	}
+	if changedCard == nil {
+		t.Fatalf("no CHANGED snapshot card in build detail")
+	}
+	if img := changedCard["images"].(map[string]any); img["new"] == nil || img["diff"] == nil || img["baseline"] == nil {
+		t.Fatalf("CHANGED card thumbnails = %v, want baseline+new+diff presigned", img)
 	}
 
 	// (9) Snapshot review: presigned URLs for baseline/new/diff + approval history.
@@ -197,6 +221,45 @@ func TestPhase4Dashboard(t *testing.T) {
 		t.Fatalf("NEW snapshot baseline = %v, want null", img["baseline"])
 	}
 
+	// (10b) Members: alice is the sole member, role OWNER, with one authored approval event.
+	code, body = getJSON(t, alice, base+"/projects/"+projA.ID+"/members")
+	if code != http.StatusOK {
+		t.Fatalf("members: got %d (%s)", code, body)
+	}
+	members := arr(t, obj(t, body)["members"])
+	if len(members) != 1 {
+		t.Fatalf("members = %d, want 1", len(members))
+	}
+	if m0 := members[0].(map[string]any); m0["email"] != "alice@example.com" || m0["role"] != "OWNER" || !numEq(m0["totalReviews"], 1) {
+		t.Fatalf("member[0] = %v, want alice/OWNER/1 review", m0)
+	}
+
+	// (10c) Baselines: one seeded baseline with a presigned thumbnail URL.
+	code, body = getJSON(t, alice, base+"/projects/"+projA.ID+"/baselines")
+	if code != http.StatusOK {
+		t.Fatalf("baselines: got %d (%s)", code, body)
+	}
+	baselines := arr(t, obj(t, body)["baselines"])
+	if len(baselines) != 1 {
+		t.Fatalf("baselines = %d, want 1", len(baselines))
+	}
+	if b0 := baselines[0].(map[string]any); b0["name"] != "home--desktop" || b0["imageUrl"] == nil {
+		t.Fatalf("baseline[0] = %v, want home--desktop with imageUrl", b0)
+	}
+
+	// (10d) Activity: the org feed has the single APPROVE event, attributed to the right project.
+	code, body = getJSON(t, alice, base+"/activity")
+	if code != http.StatusOK {
+		t.Fatalf("activity: got %d (%s)", code, body)
+	}
+	activity := arr(t, obj(t, body)["activity"])
+	if len(activity) != 1 {
+		t.Fatalf("activity = %d, want 1", len(activity))
+	}
+	if a0 := activity[0].(map[string]any); a0["action"] != "APPROVE" || a0["projectName"] != "Project A" {
+		t.Fatalf("activity[0] = %v, want APPROVE / Project A", a0)
+	}
+
 	// (11) Precise 404s for unknown ids (still authenticated as alice).
 	if code, body := getJSON(t, alice, base+"/builds/does-not-exist"); code != http.StatusNotFound || errCode(t, body) != "BUILD_NOT_FOUND" {
 		t.Fatalf("unknown build: got %d (%s), want 404 BUILD_NOT_FOUND", code, body)
@@ -212,12 +275,19 @@ func TestPhase4Dashboard(t *testing.T) {
 	}
 	for _, url := range []string{
 		base + "/projects/" + projA.ID + "/builds",
+		base + "/projects/" + projA.ID + "/members",
+		base + "/projects/" + projA.ID + "/baselines",
 		base + "/builds/" + buildID,
 		base + "/snapshots/" + changedSnap,
 	} {
 		if code, body := getJSON(t, bob, url); code != http.StatusForbidden || errCode(t, body) != "FORBIDDEN_PROJECT" {
 			t.Fatalf("bob GET %s: got %d (%s), want 403 FORBIDDEN_PROJECT", url, code, body)
 		}
+	}
+	// Bob's org activity feed is scoped to his memberships — he is in no project, so it is empty
+	// (a non-member never sees another org's events, even in the aggregate feed).
+	if code, body := getJSON(t, bob, base+"/activity"); code != http.StatusOK || len(arr(t, obj(t, body)["activity"])) != 0 {
+		t.Fatalf("bob activity: got %d with %s, want 200 empty", code, body)
 	}
 
 	// (13) Logout revokes the session: the same cookie no longer authenticates.

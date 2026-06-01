@@ -1,5 +1,38 @@
 components:
   schemas:
+    ActivityEntry:
+      additionalProperties: false
+      properties:
+        action:
+          type: string
+        at:
+          format: date-time
+          type: string
+        branch:
+          type: string
+        id:
+          type: string
+        projectId:
+          type: string
+        projectName:
+          type: string
+        snapshotId:
+          type: string
+        snapshotName:
+          type: string
+        user:
+          type: string
+      required:
+        - id
+        - action
+        - user
+        - snapshotId
+        - snapshotName
+        - branch
+        - projectId
+        - projectName
+        - at
+      type: object
     ApiError:
       additionalProperties: false
       properties:
@@ -41,6 +74,41 @@ components:
         - user
         - at
       type: object
+    BaselineView:
+      additionalProperties: false
+      properties:
+        approvedBy:
+          type: string
+        branch:
+          type: string
+        browser:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        id:
+          type: string
+        imageUrl:
+          type:
+            - string
+            - "null"
+        name:
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+        viewport:
+          type: string
+      required:
+        - id
+        - branch
+        - name
+        - browser
+        - viewport
+        - imageUrl
+        - updatedAt
+        - createdAt
+      type: object
     BuildDetail:
       additionalProperties: false
       properties:
@@ -58,6 +126,9 @@ components:
         commitSha:
           type: string
         createdAt:
+          format: date-time
+          type: string
+        finalizedAt:
           format: date-time
           type: string
         id:
@@ -90,6 +161,9 @@ components:
         counts:
           $ref: "#/components/schemas/Counts"
         createdAt:
+          format: date-time
+          type: string
+        finalizedAt:
           format: date-time
           type: string
         id:
@@ -300,6 +374,63 @@ components:
         - new
         - diff
       type: object
+    ListActivityOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/ListActivityOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        activity:
+          items:
+            $ref: "#/components/schemas/ActivityEntry"
+          type:
+            - array
+            - "null"
+      required:
+        - activity
+      type: object
+    ListBaselinesOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/ListBaselinesOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        baselines:
+          items:
+            $ref: "#/components/schemas/BaselineView"
+          type:
+            - array
+            - "null"
+      required:
+        - baselines
+      type: object
+    ListMembersOutputBody:
+      additionalProperties: false
+      properties:
+        $schema:
+          description: A URL to the JSON Schema for this object.
+          examples:
+            - /api/schemas/ListMembersOutputBody.json
+          format: uri
+          readOnly: true
+          type: string
+        members:
+          items:
+            $ref: "#/components/schemas/Member"
+          type:
+            - array
+            - "null"
+      required:
+        - members
+      type: object
     ListProjectsOutputBody:
       additionalProperties: false
       properties:
@@ -375,6 +506,26 @@ components:
       required:
         - ok
       type: object
+    Member:
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        totalReviews:
+          format: int64
+          type: integer
+      required:
+        - id
+        - email
+        - role
+        - totalReviews
+      type: object
     ProjectView:
       additionalProperties: false
       properties:
@@ -383,10 +534,27 @@ components:
           type: string
         defaultBranch:
           type: string
+        healthOk:
+          format: int64
+          type: integer
+        healthTotal:
+          format: int64
+          type: integer
         id:
           type: string
+        lastBuildAt:
+          format: date-time
+          type: string
+        lastBuildStatus:
+          type: string
+        memberCount:
+          format: int64
+          type: integer
         name:
           type: string
+        openReviews:
+          format: int64
+          type: integer
         role:
           type: string
         slug:
@@ -398,6 +566,10 @@ components:
         - defaultBranch
         - role
         - createdAt
+        - openReviews
+        - memberCount
+        - healthOk
+        - healthTotal
       type: object
     SnapshotBrief:
       additionalProperties: false
@@ -409,6 +581,8 @@ components:
           type: number
         id:
           type: string
+        images:
+          $ref: "#/components/schemas/Images"
         name:
           type: string
         status:
@@ -421,6 +595,7 @@ components:
         - browser
         - viewport
         - status
+        - images
       type: object
     SnapshotReview:
       additionalProperties: false
@@ -501,6 +676,27 @@ info:
   version: 0.1.0
 openapi: 3.1.0
 paths:
+  /v1/activity:
+    get:
+      operationId: listActivity
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListActivityOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Organization activity feed
+      tags:
+        - dashboard
   /v1/auth/login:
     post:
       operationId: login
@@ -748,6 +944,33 @@ paths:
       summary: Projects you can access
       tags:
         - dashboard
+  /v1/projects/{projectId}/baselines:
+    get:
+      operationId: listBaselines
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListBaselinesOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Per-branch baselines of a project
+      tags:
+        - dashboard
   /v1/projects/{projectId}/builds:
     get:
       operationId: listBuilds
@@ -796,6 +1019,33 @@ paths:
       security:
         - SessionCookie: []
       summary: Build feed for a project
+      tags:
+        - dashboard
+  /v1/projects/{projectId}/members:
+    get:
+      operationId: listMembers
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListMembersOutputBody"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+          description: Error
+      security:
+        - SessionCookie: []
+      summary: Members of a project
       tags:
         - dashboard
   /v1/snapshots/{snapshotId}:

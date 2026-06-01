@@ -108,7 +108,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 }
 
 const getBuildForMember = `-- name: GetBuildForMember :one
-SELECT b.id, b.project_id, b.branch, b.commit_sha, b.status, b.created_at, b.ci_job_url
+SELECT b.id, b.project_id, b.branch, b.commit_sha, b.status, b.created_at, b.finalized_at, b.ci_job_url
 FROM builds b
 JOIN memberships m ON m.project_id = b.project_id
 WHERE b.id = $1 AND m.user_id = $2
@@ -120,13 +120,14 @@ type GetBuildForMemberParams struct {
 }
 
 type GetBuildForMemberRow struct {
-	ID        string             `json:"id"`
-	ProjectID string             `json:"project_id"`
-	Branch    string             `json:"branch"`
-	CommitSha string             `json:"commit_sha"`
-	Status    BuildStatus        `json:"status"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	CiJobUrl  *string            `json:"ci_job_url"`
+	ID          string             `json:"id"`
+	ProjectID   string             `json:"project_id"`
+	Branch      string             `json:"branch"`
+	CommitSha   string             `json:"commit_sha"`
+	Status      BuildStatus        `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	FinalizedAt pgtype.Timestamptz `json:"finalized_at"`
+	CiJobUrl    *string            `json:"ci_job_url"`
 }
 
 // A build the user may see (membership-scoped join). No row ⇒ not found OR not a member: the handler
@@ -141,6 +142,7 @@ func (q *Queries) GetBuildForMember(ctx context.Context, arg GetBuildForMemberPa
 		&i.CommitSha,
 		&i.Status,
 		&i.CreatedAt,
+		&i.FinalizedAt,
 		&i.CiJobUrl,
 	)
 	return i, err
@@ -281,6 +283,74 @@ func (q *Queries) IsProjectMember(ctx context.Context, arg IsProjectMemberParams
 	return is_member, err
 }
 
+const listActivityForUser = `-- name: ListActivityForUser :many
+SELECT
+  ae.id, ae.action, ae.created_at,
+  u.email      AS user_email,
+  s.id         AS snapshot_id,
+  s.name       AS snapshot_name,
+  b.branch     AS branch,
+  p.id         AS project_id,
+  p.name       AS project_name
+FROM approval_events ae
+JOIN users u ON u.id = ae.user_id
+JOIN snapshots s ON s.id = ae.snapshot_id
+JOIN builds b ON b.id = s.build_id
+JOIN projects p ON p.id = b.project_id
+WHERE EXISTS (SELECT 1 FROM memberships m WHERE m.user_id = $1 AND m.project_id = p.id)
+ORDER BY ae.created_at DESC
+LIMIT $2
+`
+
+type ListActivityForUserParams struct {
+	UserID    string `json:"user_id"`
+	PageLimit int32  `json:"page_limit"`
+}
+
+type ListActivityForUserRow struct {
+	ID           string             `json:"id"`
+	Action       ApprovalAction     `json:"action"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UserEmail    string             `json:"user_email"`
+	SnapshotID   string             `json:"snapshot_id"`
+	SnapshotName string             `json:"snapshot_name"`
+	Branch       string             `json:"branch"`
+	ProjectID    string             `json:"project_id"`
+	ProjectName  string             `json:"project_name"`
+}
+
+// Organization activity feed: approval events across every project the user is a member of, newest
+// first. The membership EXISTS predicate keeps the feed scoped — a user never sees another org's events.
+func (q *Queries) ListActivityForUser(ctx context.Context, arg ListActivityForUserParams) ([]ListActivityForUserRow, error) {
+	rows, err := q.db.Query(ctx, listActivityForUser, arg.UserID, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActivityForUserRow
+	for rows.Next() {
+		var i ListActivityForUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Action,
+			&i.CreatedAt,
+			&i.UserEmail,
+			&i.SnapshotID,
+			&i.SnapshotName,
+			&i.Branch,
+			&i.ProjectID,
+			&i.ProjectName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listApprovalEvents = `-- name: ListApprovalEvents :many
 SELECT ae.action, u.email AS user_email, ae.created_at
 FROM approval_events ae
@@ -318,7 +388,7 @@ func (q *Queries) ListApprovalEvents(ctx context.Context, snapshotID string) ([]
 
 const listBuildsForProjectMember = `-- name: ListBuildsForProjectMember :many
 SELECT
-  b.id, b.branch, b.commit_sha, b.status, b.created_at, b.ci_job_url,
+  b.id, b.branch, b.commit_sha, b.status, b.created_at, b.finalized_at, b.ci_job_url,
   count(s.id) FILTER (WHERE s.status = 'UNCHANGED') AS unchanged,
   count(s.id) FILTER (WHERE s.status = 'CHANGED')   AS changed,
   count(s.id) FILTER (WHERE s.status = 'NEW')       AS new,
@@ -344,16 +414,17 @@ type ListBuildsForProjectMemberParams struct {
 }
 
 type ListBuildsForProjectMemberRow struct {
-	ID        string             `json:"id"`
-	Branch    string             `json:"branch"`
-	CommitSha string             `json:"commit_sha"`
-	Status    BuildStatus        `json:"status"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	CiJobUrl  *string            `json:"ci_job_url"`
-	Unchanged int64              `json:"unchanged"`
-	Changed   int64              `json:"changed"`
-	New       int64              `json:"new"`
-	Removed   int64              `json:"removed"`
+	ID          string             `json:"id"`
+	Branch      string             `json:"branch"`
+	CommitSha   string             `json:"commit_sha"`
+	Status      BuildStatus        `json:"status"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	FinalizedAt pgtype.Timestamptz `json:"finalized_at"`
+	CiJobUrl    *string            `json:"ci_job_url"`
+	Unchanged   int64              `json:"unchanged"`
+	Changed     int64              `json:"changed"`
+	New         int64              `json:"new"`
+	Removed     int64              `json:"removed"`
 }
 
 // Builds feed for a project the user can see, with per-status snapshot counts computed in SQL
@@ -381,11 +452,114 @@ func (q *Queries) ListBuildsForProjectMember(ctx context.Context, arg ListBuilds
 			&i.CommitSha,
 			&i.Status,
 			&i.CreatedAt,
+			&i.FinalizedAt,
 			&i.CiJobUrl,
 			&i.Unchanged,
 			&i.Changed,
 			&i.New,
 			&i.Removed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProjectBaselines = `-- name: ListProjectBaselines :many
+SELECT
+  bl.id, bl.branch, bl.name, bl.browser, bl.viewport, bl.image_sha,
+  bl.updated_at, bl.created_at,
+  u.email AS approved_by_email
+FROM baselines bl
+LEFT JOIN users u ON u.id = bl.approved_by_user_id
+WHERE bl.project_id = $1
+ORDER BY bl.branch, bl.name, bl.browser, bl.viewport
+`
+
+type ListProjectBaselinesRow struct {
+	ID              string             `json:"id"`
+	Branch          string             `json:"branch"`
+	Name            string             `json:"name"`
+	Browser         string             `json:"browser"`
+	Viewport        string             `json:"viewport"`
+	ImageSha        string             `json:"image_sha"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ApprovedByEmail *string            `json:"approved_by_email"`
+}
+
+// Per-branch baselines of a project (Базовые линии screen): the canonical accepted snapshot for each
+// (branch, name, browser, viewport), with the blob sha (presigned by the service), who accepted it, and
+// when it was last updated. Membership is enforced at the handler.
+func (q *Queries) ListProjectBaselines(ctx context.Context, projectID string) ([]ListProjectBaselinesRow, error) {
+	rows, err := q.db.Query(ctx, listProjectBaselines, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProjectBaselinesRow
+	for rows.Next() {
+		var i ListProjectBaselinesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Branch,
+			&i.Name,
+			&i.Browser,
+			&i.Viewport,
+			&i.ImageSha,
+			&i.UpdatedAt,
+			&i.CreatedAt,
+			&i.ApprovedByEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProjectMembers = `-- name: ListProjectMembers :many
+SELECT
+  u.id, u.email, u.name, m.role,
+  (SELECT count(*) FROM approval_events ae WHERE ae.user_id = u.id) AS total_reviews
+FROM memberships m
+JOIN users u ON u.id = m.user_id
+WHERE m.project_id = $1
+ORDER BY m.role, u.email
+`
+
+type ListProjectMembersRow struct {
+	ID           string  `json:"id"`
+	Email        string  `json:"email"`
+	Name         *string `json:"name"`
+	Role         Role    `json:"role"`
+	TotalReviews int64   `json:"total_reviews"`
+}
+
+// Members of a project (membership-scoped at the handler): each member's identity, role, and a real
+// all-time review tally (approval events authored). Used by the Участники screen.
+func (q *Queries) ListProjectMembers(ctx context.Context, projectID string) ([]ListProjectMembersRow, error) {
+	rows, err := q.db.Query(ctx, listProjectMembers, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProjectMembersRow
+	for rows.Next() {
+		var i ListProjectMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.TotalReviews,
 		); err != nil {
 			return nil, err
 		}
@@ -442,23 +616,108 @@ func (q *Queries) ListProjectsForUser(ctx context.Context, userID string) ([]Lis
 	return items, nil
 }
 
+const listProjectsOverview = `-- name: ListProjectsOverview :many
+SELECT
+  p.id, p.name, p.slug, p.default_branch, p.created_at, m.role,
+  (SELECT count(*) FROM builds b WHERE b.project_id = p.id AND b.status = 'REVIEW_REQUIRED') AS open_reviews,
+  (SELECT count(*) FROM memberships mm WHERE mm.project_id = p.id) AS member_count,
+  lb.created_at AS last_build_at,
+  lb.status     AS last_build_status,
+  coalesce(lc.ok, 0)    AS health_ok,
+  coalesce(lc.total, 0) AS health_total
+FROM projects p
+JOIN memberships m ON m.project_id = p.id
+LEFT JOIN LATERAL (
+  SELECT b.id, b.created_at, b.status
+  FROM builds b WHERE b.project_id = p.id
+  ORDER BY b.created_at DESC LIMIT 1
+) lb ON true
+LEFT JOIN LATERAL (
+  SELECT
+    count(*) FILTER (WHERE s.status IN ('UNCHANGED', 'APPROVED')) AS ok,
+    count(*) AS total
+  FROM snapshots s WHERE s.build_id = lb.id
+) lc ON true
+WHERE m.user_id = $1
+ORDER BY p.created_at DESC
+`
+
+type ListProjectsOverviewRow struct {
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	Slug            string             `json:"slug"`
+	DefaultBranch   string             `json:"default_branch"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Role            Role               `json:"role"`
+	OpenReviews     int64              `json:"open_reviews"`
+	MemberCount     int64              `json:"member_count"`
+	LastBuildAt     pgtype.Timestamptz `json:"last_build_at"`
+	LastBuildStatus BuildStatus        `json:"last_build_status"`
+	HealthOk        int64              `json:"health_ok"`
+	HealthTotal     int64              `json:"health_total"`
+}
+
+// Membership-scoped project overview: each project the user belongs to, enriched with real aggregates
+// computed in SQL — open reviews (builds awaiting review), member count, last build time, and the latest
+// build's "in-norm" snapshot ratio (UNCHANGED+APPROVED over total) for the health bar. Every figure is
+// derived from existing rows; nothing is synthesised.
+func (q *Queries) ListProjectsOverview(ctx context.Context, userID string) ([]ListProjectsOverviewRow, error) {
+	rows, err := q.db.Query(ctx, listProjectsOverview, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListProjectsOverviewRow
+	for rows.Next() {
+		var i ListProjectsOverviewRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.DefaultBranch,
+			&i.CreatedAt,
+			&i.Role,
+			&i.OpenReviews,
+			&i.MemberCount,
+			&i.LastBuildAt,
+			&i.LastBuildStatus,
+			&i.HealthOk,
+			&i.HealthTotal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSnapshotsForBuild = `-- name: ListSnapshotsForBuild :many
-SELECT id, name, browser, viewport, status, diff_ratio
-FROM snapshots
-WHERE build_id = $1
-ORDER BY name, browser, viewport
+SELECT s.id, s.name, s.browser, s.viewport, s.status, s.diff_ratio,
+       s.new_image_sha, s.diff_image_sha, bl.image_sha AS baseline_image_sha
+FROM snapshots s
+LEFT JOIN baselines bl ON bl.id = s.baseline_id
+WHERE s.build_id = $1
+ORDER BY s.name, s.browser, s.viewport
 `
 
 type ListSnapshotsForBuildRow struct {
-	ID        string         `json:"id"`
-	Name      string         `json:"name"`
-	Browser   string         `json:"browser"`
-	Viewport  string         `json:"viewport"`
-	Status    SnapshotStatus `json:"status"`
-	DiffRatio *float64       `json:"diff_ratio"`
+	ID               string         `json:"id"`
+	Name             string         `json:"name"`
+	Browser          string         `json:"browser"`
+	Viewport         string         `json:"viewport"`
+	Status           SnapshotStatus `json:"status"`
+	DiffRatio        *float64       `json:"diff_ratio"`
+	NewImageSha      *string        `json:"new_image_sha"`
+	DiffImageSha     *string        `json:"diff_image_sha"`
+	BaselineImageSha *string        `json:"baseline_image_sha"`
 }
 
-// Snapshots of a build (brief metadata for the build detail view).
+// Snapshots of a build (brief metadata + image shas for the build-detail thumbnail grid). The new and
+// diff blobs are the snapshot's own; the baseline blob is resolved through baseline_id. The service
+// presigns whichever are non-null so the grid can render a real thumbnail per card.
 func (q *Queries) ListSnapshotsForBuild(ctx context.Context, buildID string) ([]ListSnapshotsForBuildRow, error) {
 	rows, err := q.db.Query(ctx, listSnapshotsForBuild, buildID)
 	if err != nil {
@@ -475,6 +734,9 @@ func (q *Queries) ListSnapshotsForBuild(ctx context.Context, buildID string) ([]
 			&i.Viewport,
 			&i.Status,
 			&i.DiffRatio,
+			&i.NewImageSha,
+			&i.DiffImageSha,
+			&i.BaselineImageSha,
 		); err != nil {
 			return nil, err
 		}

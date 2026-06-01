@@ -27,6 +27,12 @@ export type LoginRequest = Schemas['LoginInputBody'];
 export type LoginResponse = Schemas['LoginOutputBody'];
 export type LogoutResponse = Schemas['LogoutOutputBody'];
 export type ProjectList = Schemas['ListProjectsOutputBody'];
+export type Member = Schemas['Member'];
+export type MemberList = Schemas['ListMembersOutputBody'];
+export type BaselineView = Schemas['BaselineView'];
+export type BaselineList = Schemas['ListBaselinesOutputBody'];
+export type ActivityEntry = Schemas['ActivityEntry'];
+export type ActivityList = Schemas['ListActivityOutputBody'];
 
 // ---- Ingestion (Phase 1) ----
 export type CreateBuildRequest = Schemas['CreateBuildInputBody'];

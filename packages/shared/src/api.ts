@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/v1/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Organization activity feed */
+        get: operations["listActivity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/login": {
         parameters: {
             query?: never;
@@ -141,6 +158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{projectId}/baselines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Per-branch baselines of a project */
+        get: operations["listBaselines"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects/{projectId}/builds": {
         parameters: {
             query?: never;
@@ -150,6 +184,23 @@ export interface paths {
         };
         /** Build feed for a project */
         get: operations["listBuilds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{projectId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Members of a project */
+        get: operations["listMembers"];
         put?: never;
         post?: never;
         delete?: never;
@@ -179,6 +230,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ActivityEntry: {
+            action: string;
+            /** Format: date-time */
+            at: string;
+            branch: string;
+            id: string;
+            projectId: string;
+            projectName: string;
+            snapshotId: string;
+            snapshotName: string;
+            user: string;
+        };
         ApiError: {
             /**
              * Format: uri
@@ -198,6 +261,19 @@ export interface components {
             at: string;
             user: string;
         };
+        BaselineView: {
+            approvedBy?: string;
+            branch: string;
+            browser: string;
+            /** Format: date-time */
+            createdAt: string;
+            id: string;
+            imageUrl: string | null;
+            name: string;
+            /** Format: date-time */
+            updatedAt: string;
+            viewport: string;
+        };
         BuildDetail: {
             /**
              * Format: uri
@@ -210,6 +286,8 @@ export interface components {
             commitSha: string;
             /** Format: date-time */
             createdAt: string;
+            /** Format: date-time */
+            finalizedAt?: string;
             id: string;
             snapshots: components["schemas"]["SnapshotBrief"][] | null;
             status: string;
@@ -221,6 +299,8 @@ export interface components {
             counts: components["schemas"]["Counts"];
             /** Format: date-time */
             createdAt: string;
+            /** Format: date-time */
+            finalizedAt?: string;
             id: string;
             status: string;
         };
@@ -320,6 +400,33 @@ export interface components {
             diff: string | null;
             new: string | null;
         };
+        ListActivityOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/schemas/ListActivityOutputBody.json
+             */
+            readonly $schema?: string;
+            activity: components["schemas"]["ActivityEntry"][] | null;
+        };
+        ListBaselinesOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/schemas/ListBaselinesOutputBody.json
+             */
+            readonly $schema?: string;
+            baselines: components["schemas"]["BaselineView"][] | null;
+        };
+        ListMembersOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example /api/schemas/ListMembersOutputBody.json
+             */
+            readonly $schema?: string;
+            members: components["schemas"]["Member"][] | null;
+        };
         ListProjectsOutputBody: {
             /**
              * Format: uri
@@ -363,12 +470,31 @@ export interface components {
             readonly $schema?: string;
             ok: boolean;
         };
+        Member: {
+            email: string;
+            id: string;
+            name?: string;
+            role: string;
+            /** Format: int64 */
+            totalReviews: number;
+        };
         ProjectView: {
             /** Format: date-time */
             createdAt: string;
             defaultBranch: string;
+            /** Format: int64 */
+            healthOk: number;
+            /** Format: int64 */
+            healthTotal: number;
             id: string;
+            /** Format: date-time */
+            lastBuildAt?: string;
+            lastBuildStatus?: string;
+            /** Format: int64 */
+            memberCount: number;
             name: string;
+            /** Format: int64 */
+            openReviews: number;
             role: string;
             slug: string;
         };
@@ -377,6 +503,7 @@ export interface components {
             /** Format: double */
             diffRatio?: number;
             id: string;
+            images: components["schemas"]["Images"];
             name: string;
             status: string;
             viewport: string;
@@ -420,6 +547,35 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    listActivity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListActivityOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -709,6 +865,37 @@ export interface operations {
             };
         };
     };
+    listBaselines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListBaselinesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     listBuilds: {
         parameters: {
             query?: {
@@ -733,6 +920,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BuildsPage"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    listMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMembersOutputBody"];
                 };
             };
             /** @description Error */

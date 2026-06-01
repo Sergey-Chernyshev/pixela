@@ -189,6 +189,57 @@ func registerDashboard(api huma.API, svc *dashboard.Service, log *slog.Logger, c
 		}
 		return &getSnapshotOutput{Body: review}, nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listMembers", Method: http.MethodGet, Path: "/v1/projects/{projectId}/members",
+		Summary: "Members of a project", Tags: []string{"dashboard"}, Security: sessionSecurity,
+	}, func(ctx context.Context, in *getProjectInput) (*listMembersOutput, error) {
+		p, err := requireUser(ctx)
+		if err != nil {
+			return nil, err
+		}
+		members, err := svc.ListMembers(ctx, p.UserID, in.ProjectID)
+		if err != nil {
+			return nil, mapError(log, err)
+		}
+		out := &listMembersOutput{}
+		out.Body.Members = members
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listBaselines", Method: http.MethodGet, Path: "/v1/projects/{projectId}/baselines",
+		Summary: "Per-branch baselines of a project", Tags: []string{"dashboard"}, Security: sessionSecurity,
+	}, func(ctx context.Context, in *getProjectInput) (*listBaselinesOutput, error) {
+		p, err := requireUser(ctx)
+		if err != nil {
+			return nil, err
+		}
+		baselines, err := svc.ListBaselines(ctx, p.UserID, in.ProjectID)
+		if err != nil {
+			return nil, mapError(log, err)
+		}
+		out := &listBaselinesOutput{}
+		out.Body.Baselines = baselines
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "listActivity", Method: http.MethodGet, Path: "/v1/activity",
+		Summary: "Organization activity feed", Tags: []string{"dashboard"}, Security: sessionSecurity,
+	}, func(ctx context.Context, _ *struct{}) (*listActivityOutput, error) {
+		p, err := requireUser(ctx)
+		if err != nil {
+			return nil, err
+		}
+		activity, err := svc.ListActivity(ctx, p.UserID)
+		if err != nil {
+			return nil, mapError(log, err)
+		}
+		out := &listActivityOutput{}
+		out.Body.Activity = activity
+		return out, nil
+	})
 }
 
 // requireUser returns the authenticated dashboard user or a 401 (the middleware guarantees it on
@@ -286,4 +337,26 @@ type getSnapshotInput struct {
 
 type getSnapshotOutput struct {
 	Body dashboard.SnapshotReview
+}
+
+type getProjectInput struct {
+	ProjectID string `path:"projectId"`
+}
+
+type listMembersOutput struct {
+	Body struct {
+		Members []dashboard.Member `json:"members"`
+	}
+}
+
+type listBaselinesOutput struct {
+	Body struct {
+		Baselines []dashboard.BaselineView `json:"baselines"`
+	}
+}
+
+type listActivityOutput struct {
+	Body struct {
+		Activity []dashboard.ActivityEntry `json:"activity"`
+	}
 }

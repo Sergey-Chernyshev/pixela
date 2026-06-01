@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/auth"
 	"github.com/Sergey-Chernyshev/pixela/apps/api/internal/core"
@@ -111,28 +112,44 @@ func (s *Service) Me(ctx context.Context, userID string) (User, error) {
 
 // ---- projects ----
 
-// ProjectView is a project the user belongs to.
+// ProjectView is a project the user belongs to, enriched with real aggregates computed in SQL: open
+// reviews, member count, last-build time/status, and the latest build's in-norm snapshot ratio (for the
+// health bar). Every figure comes from existing rows — nothing is synthesised.
 type ProjectView struct {
-	ID            string    `json:"id"`
-	Name          string    `json:"name"`
-	Slug          string    `json:"slug"`
-	DefaultBranch string    `json:"defaultBranch"`
-	Role          string    `json:"role"`
-	CreatedAt     time.Time `json:"createdAt"`
+	ID              string     `json:"id"`
+	Name            string     `json:"name"`
+	Slug            string     `json:"slug"`
+	DefaultBranch   string     `json:"defaultBranch"`
+	Role            string     `json:"role"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	OpenReviews     int        `json:"openReviews"`
+	MemberCount     int        `json:"memberCount"`
+	LastBuildAt     *time.Time `json:"lastBuildAt,omitempty"`
+	LastBuildStatus *string    `json:"lastBuildStatus,omitempty"`
+	HealthOk        int        `json:"healthOk"`
+	HealthTotal     int        `json:"healthTotal"`
 }
 
-// ListProjects returns the projects the user is a member of.
+// ListProjects returns the projects the user is a member of, with overview aggregates.
 func (s *Service) ListProjects(ctx context.Context, userID string) ([]ProjectView, error) {
-	rows, err := s.db.Queries().ListProjectsForUser(ctx, userID)
+	rows, err := s.db.Queries().ListProjectsOverview(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("list projects: %w", err)
 	}
 	out := make([]ProjectView, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, ProjectView{
+		pv := ProjectView{
 			ID: r.ID, Name: r.Name, Slug: r.Slug, DefaultBranch: r.DefaultBranch,
 			Role: string(r.Role), CreatedAt: r.CreatedAt.Time,
-		})
+			OpenReviews: int(r.OpenReviews), MemberCount: int(r.MemberCount),
+			LastBuildAt: tsPtr(r.LastBuildAt),
+			HealthOk:    int(r.HealthOk), HealthTotal: int(r.HealthTotal),
+		}
+		if r.LastBuildAt.Valid {
+			status := string(r.LastBuildStatus)
+			pv.LastBuildStatus = &status
+		}
+		out = append(out, pv)
 	}
 	return out, nil
 }
@@ -147,15 +164,17 @@ type Counts struct {
 	Removed   int `json:"removed"`
 }
 
-// BuildListItem is one row of a project's build feed.
+// BuildListItem is one row of a project's build feed. FinalizedAt (when set) lets the UI show the run
+// duration (finalizedAt − createdAt) — a real value, not a fabricated one.
 type BuildListItem struct {
-	ID        string    `json:"id"`
-	Branch    string    `json:"branch"`
-	CommitSha string    `json:"commitSha"`
-	Status    string    `json:"status"`
-	Counts    Counts    `json:"counts"`
-	CreatedAt time.Time `json:"createdAt"`
-	CIJobURL  *string   `json:"ciJobUrl,omitempty"`
+	ID          string     `json:"id"`
+	Branch      string     `json:"branch"`
+	CommitSha   string     `json:"commitSha"`
+	Status      string     `json:"status"`
+	Counts      Counts     `json:"counts"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	FinalizedAt *time.Time `json:"finalizedAt,omitempty"`
+	CIJobURL    *string    `json:"ciJobUrl,omitempty"`
 }
 
 // BuildsPage is a paginated build feed.
@@ -210,13 +229,14 @@ func (s *Service) ListBuilds(ctx context.Context, userID, projectID, branch, sta
 		items = append(items, BuildListItem{
 			ID: r.ID, Branch: r.Branch, CommitSha: r.CommitSha, Status: string(r.Status),
 			Counts:    Counts{Unchanged: int(r.Unchanged), Changed: int(r.Changed), New: int(r.New), Removed: int(r.Removed)},
-			CreatedAt: r.CreatedAt.Time, CIJobURL: r.CiJobUrl,
+			CreatedAt: r.CreatedAt.Time, FinalizedAt: tsPtr(r.FinalizedAt), CIJobURL: r.CiJobUrl,
 		})
 	}
 	return BuildsPage{Items: items, Page: page, TotalPages: totalPages}, nil
 }
 
-// SnapshotBrief is the snapshot metadata in a build detail.
+// SnapshotBrief is the snapshot metadata in a build detail, with presigned thumbnail URLs (baseline /
+// new / diff, any may be null per status) so the grid can render a real preview per card.
 type SnapshotBrief struct {
 	ID        string   `json:"id"`
 	Name      string   `json:"name"`
@@ -224,17 +244,19 @@ type SnapshotBrief struct {
 	Viewport  string   `json:"viewport"`
 	Status    string   `json:"status"`
 	DiffRatio *float64 `json:"diffRatio,omitempty"`
+	Images    Images   `json:"images"`
 }
 
-// BuildDetail is a build with its snapshots.
+// BuildDetail is a build with its snapshots. FinalizedAt (when set) gives the real run duration.
 type BuildDetail struct {
-	ID        string          `json:"id"`
-	Branch    string          `json:"branch"`
-	CommitSha string          `json:"commitSha"`
-	Status    string          `json:"status"`
-	CreatedAt time.Time       `json:"createdAt"`
-	CIJobURL  *string         `json:"ciJobUrl,omitempty"`
-	Snapshots []SnapshotBrief `json:"snapshots"`
+	ID          string          `json:"id"`
+	Branch      string          `json:"branch"`
+	CommitSha   string          `json:"commitSha"`
+	Status      string          `json:"status"`
+	CreatedAt   time.Time       `json:"createdAt"`
+	FinalizedAt *time.Time      `json:"finalizedAt,omitempty"`
+	CIJobURL    *string         `json:"ciJobUrl,omitempty"`
+	Snapshots   []SnapshotBrief `json:"snapshots"`
 }
 
 // GetBuild returns a build and its snapshots. A precise 403 (member of nothing) vs 404 (no such build).
@@ -252,14 +274,18 @@ func (s *Service) GetBuild(ctx context.Context, userID, buildID string) (BuildDe
 	}
 	briefs := make([]SnapshotBrief, 0, len(snaps))
 	for _, sn := range snaps {
+		imgs, err := s.presignTrio(ctx, sn.BaselineImageSha, sn.NewImageSha, sn.DiffImageSha)
+		if err != nil {
+			return BuildDetail{}, err
+		}
 		briefs = append(briefs, SnapshotBrief{
 			ID: sn.ID, Name: sn.Name, Browser: sn.Browser, Viewport: sn.Viewport,
-			Status: string(sn.Status), DiffRatio: sn.DiffRatio,
+			Status: string(sn.Status), DiffRatio: sn.DiffRatio, Images: imgs,
 		})
 	}
 	return BuildDetail{
 		ID: b.ID, Branch: b.Branch, CommitSha: b.CommitSha, Status: string(b.Status),
-		CreatedAt: b.CreatedAt.Time, CIJobURL: b.CiJobUrl, Snapshots: briefs,
+		CreatedAt: b.CreatedAt.Time, FinalizedAt: tsPtr(b.FinalizedAt), CIJobURL: b.CiJobUrl, Snapshots: briefs,
 	}, nil
 }
 
@@ -344,6 +370,36 @@ func (s *Service) presign(ctx context.Context, sha *string) (*string, error) {
 	return &url, nil
 }
 
+// presignTrio presigns the baseline/new/diff blobs of one snapshot for the build-detail thumbnail grid.
+func (s *Service) presignTrio(ctx context.Context, baseline, newSha, diff *string) (Images, error) {
+	b, err := s.presign(ctx, baseline)
+	if err != nil {
+		return Images{}, err
+	}
+	n, err := s.presign(ctx, newSha)
+	if err != nil {
+		return Images{}, err
+	}
+	d, err := s.presign(ctx, diff)
+	if err != nil {
+		return Images{}, err
+	}
+	return Images{Baseline: b, New: n, Diff: d}, nil
+}
+
+// requireMember gates a project-scoped list endpoint: a non-member gets ErrForbiddenProject (we do not
+// distinguish a missing project from an inaccessible one here — neither is observable beyond a 403).
+func (s *Service) requireMember(ctx context.Context, userID, projectID string) error {
+	member, err := s.db.Queries().IsProjectMember(ctx, db.IsProjectMemberParams{UserID: userID, ProjectID: projectID})
+	if err != nil {
+		return fmt.Errorf("membership check: %w", err)
+	}
+	if !member {
+		return fmt.Errorf("project %s: %w", projectID, core.ErrForbiddenProject)
+	}
+	return nil
+}
+
 // notFoundOrForbidden distinguishes "resource does not exist" (notFoundErr) from "exists but you are not
 // a member" (ErrForbiddenProject) — so we never leak existence to non-members beyond a 403.
 func (s *Service) notFoundOrForbidden(ctx context.Context, id string, notFoundErr error, projectOf func(context.Context, string) (string, error)) error {
@@ -355,4 +411,118 @@ func (s *Service) notFoundOrForbidden(ctx context.Context, id string, notFoundEr
 		return fmt.Errorf("resolve owner: %w", err)
 	}
 	return fmt.Errorf("%s: %w", id, core.ErrForbiddenProject)
+}
+
+// tsPtr converts a nullable Postgres timestamp into a *time.Time (nil when the column is NULL).
+func tsPtr(ts pgtype.Timestamptz) *time.Time {
+	if !ts.Valid {
+		return nil
+	}
+	t := ts.Time
+	return &t
+}
+
+// ---- members ----
+
+// Member is one row of a project's members table (Участники).
+type Member struct {
+	ID           string  `json:"id"`
+	Email        string  `json:"email"`
+	Name         *string `json:"name,omitempty"`
+	Role         string  `json:"role"`
+	TotalReviews int     `json:"totalReviews"`
+}
+
+// ListMembers returns a project's members (membership-enforced) with each member's all-time review tally.
+func (s *Service) ListMembers(ctx context.Context, userID, projectID string) ([]Member, error) {
+	if err := s.requireMember(ctx, userID, projectID); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Queries().ListProjectMembers(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list members: %w", err)
+	}
+	out := make([]Member, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, Member{
+			ID: r.ID, Email: r.Email, Name: r.Name, Role: string(r.Role), TotalReviews: int(r.TotalReviews),
+		})
+	}
+	return out, nil
+}
+
+// ---- baselines ----
+
+// BaselineView is one accepted per-branch baseline (Базовые линии) with a presigned thumbnail.
+type BaselineView struct {
+	ID         string    `json:"id"`
+	Branch     string    `json:"branch"`
+	Name       string    `json:"name"`
+	Browser    string    `json:"browser"`
+	Viewport   string    `json:"viewport"`
+	ImageURL   *string   `json:"imageUrl"`
+	ApprovedBy *string   `json:"approvedBy,omitempty"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+	CreatedAt  time.Time `json:"createdAt"`
+}
+
+// ListBaselines returns a project's per-branch baselines (membership-enforced), each with a presigned
+// thumbnail URL for its current blob.
+func (s *Service) ListBaselines(ctx context.Context, userID, projectID string) ([]BaselineView, error) {
+	if err := s.requireMember(ctx, userID, projectID); err != nil {
+		return nil, err
+	}
+	rows, err := s.db.Queries().ListProjectBaselines(ctx, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("list baselines: %w", err)
+	}
+	out := make([]BaselineView, 0, len(rows))
+	for _, r := range rows {
+		sha := r.ImageSha
+		url, err := s.presign(ctx, &sha)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, BaselineView{
+			ID: r.ID, Branch: r.Branch, Name: r.Name, Browser: r.Browser, Viewport: r.Viewport,
+			ImageURL: url, ApprovedBy: r.ApprovedByEmail, UpdatedAt: r.UpdatedAt.Time, CreatedAt: r.CreatedAt.Time,
+		})
+	}
+	return out, nil
+}
+
+// ---- activity ----
+
+const activityLimit = 60
+
+// ActivityEntry is one organization-wide approval event (Активность).
+type ActivityEntry struct {
+	ID           string    `json:"id"`
+	Action       string    `json:"action"`
+	User         string    `json:"user"`
+	SnapshotID   string    `json:"snapshotId"`
+	SnapshotName string    `json:"snapshotName"`
+	Branch       string    `json:"branch"`
+	ProjectID    string    `json:"projectId"`
+	ProjectName  string    `json:"projectName"`
+	At           time.Time `json:"at"`
+}
+
+// ListActivity returns the recent approval-event feed across every project the user belongs to.
+func (s *Service) ListActivity(ctx context.Context, userID string) ([]ActivityEntry, error) {
+	rows, err := s.db.Queries().ListActivityForUser(ctx, db.ListActivityForUserParams{
+		UserID: userID, PageLimit: activityLimit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list activity: %w", err)
+	}
+	out := make([]ActivityEntry, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, ActivityEntry{
+			ID: r.ID, Action: string(r.Action), User: r.UserEmail,
+			SnapshotID: r.SnapshotID, SnapshotName: r.SnapshotName, Branch: r.Branch,
+			ProjectID: r.ProjectID, ProjectName: r.ProjectName, At: r.CreatedAt.Time,
+		})
+	}
+	return out, nil
 }
