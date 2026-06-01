@@ -1,0 +1,30 @@
+:host {
+  display: block;
+}
+
+.home {
+  max-width: 44rem;
+
+  &__title {
+    margin: 0 0 0.75rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+
+  &__lead {
+    margin: 0 0 1rem;
+    color: #374151;
+    line-height: 1.6;
+  }
+
+  &__status {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    border-radius: 999px;
+    background: #ecfdf5;
+    color: #047857;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+}

@@ -55,17 +55,18 @@
 
 ### Зафиксированные решения (старт проекта)
 
-- **Два репозитория**, не монорепо (отклонение от B-01 по решению владельца): **`pixela-back`** (этот
-  репо — NestJS API/worker + SDK + Prisma + spec) и **`pixela-ui`** (Angular-дашборд, отдельный репо).
-  Шов контракта между ними — фронт зеркалит `docs/spec/specs/04-api-contract.md`; митигация дрейфа
-  (OpenAPI-генерация / публикация `@pixela/shared`) — к Фазе 1/4.
+- **Единый монорепо `pixela`** (pnpm workspaces, рекомендация спеки B-01): `apps/api` (бэк),
+  `apps/web` (Angular-дашборд), `packages/sdk`, `packages/shared`. Контракт `04-api-contract.md`
+  меняется атомарно в пределах одного репо; фронт переиспользует типы из `@pixela/shared`.
+  _(Изначально были два репо `pixela-back`/`pixela-ui` — объединены в `pixela` по решению владельца.)_
 - **Baseline Mode A** (Playwright владеет baseline-файлами; Pixela — слой ревью) — дефолт, финализация к Фазе 3/5.
 - **Сессии дашборда — server-side в Redis** (B-03), секрет `SESSION_SECRET`.
 - **Smoke — Testcontainers** (хермётично), а не против поднятого compose.
 
 ### Фаза 0 — что готово
 
-- pnpm-workspace: `apps/api` (NestJS, режимы **`API_MODE=http|worker`**), `packages/sdk`
+- pnpm-workspace: `apps/api` (NestJS, режимы **`API_MODE=http|worker`**), `apps/web`
+  (`@pixela/web` — Angular 21 standalone shell, lazy Home, `ng build` зелёный), `packages/sdk`
   (`@pixela/playwright-reporter`, заготовка), `packages/shared` (контракт-типы, заготовка).
 - Prisma-схема 1:1 по `docs/spec/specs/03-data-model.md`; первая миграция `…_init` (без `BaselineVersion`).
 - `docker-compose.dev.yml`: postgres:16 + redis:7 + minio (host-порты параметризуемы через env, дефолты = спека).

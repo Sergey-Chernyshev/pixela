@@ -1,4 +1,5 @@
-// Flat ESLint config (ESLint 9 + typescript-eslint 8) for the Pixela backend workspace.
+// Flat ESLint config (ESLint 9 + typescript-eslint 8) for the Pixela backend (apps/api + packages).
+// The Angular frontend (apps/web) is linted by its own Angular toolchain — excluded here.
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
@@ -12,6 +13,7 @@ export default tseslint.config(
       '**/generated/**',
       '**/coverage/**',
       'docs/**',
+      'apps/web/**',
       '**/*.config.mjs',
     ],
   },

@@ -1,0 +1,23 @@
+/* Global base. The full design system (--t-* tokens, dark theme) arrives in Phase 4. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  color: #111827;
+  background: #ffffff;
+  -webkit-font-smoothing: antialiased;
+}

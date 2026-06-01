@@ -3,4 +3,7 @@ node_modules
 coverage
 docs/spec
 **/generated
+**/.angular
+# apps/web (Angular) is linted/formatted by its own toolchain.
+apps/web
 pnpm-lock.yaml

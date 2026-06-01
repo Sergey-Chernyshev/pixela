@@ -1,8 +1,8 @@
 {
-  "name": "pixela-back",
+  "name": "pixela",
   "version": "0.0.0",
   "private": true,
-  "description": "Pixela — self-hosted visual regression platform (backend monorepo: API/worker + SDK)",
+  "description": "Pixela — self-hosted visual regression platform (monorepo: API/worker, Angular web, Playwright SDK)",
   "engines": {
     "node": ">=22 <23",
     "pnpm": ">=10"
@@ -19,6 +19,7 @@
     "dev:infra": "docker compose -f docker-compose.dev.yml up -d",
     "dev:infra:down": "docker compose -f docker-compose.dev.yml down",
     "dev:api": "pnpm --filter @pixela/api run start:dev",
+    "dev:web": "pnpm --filter @pixela/web run start",
     "prisma:generate": "pnpm --filter @pixela/api run prisma:generate",
     "prisma:migrate": "pnpm --filter @pixela/api run prisma:migrate"
   },
