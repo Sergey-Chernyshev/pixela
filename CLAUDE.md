@@ -67,7 +67,7 @@
 - [x] **Фаза 3: Playwright reporter** ✅ — `@pixela/playwright-reporter` (TS, packages/sdk): `Reporter`-класс,
   sha256 на клиенте, двухшаговая заливка с дедупом, GitLab-CI автодетект, шардинг (стабильный buildId),
   soft-mode + retry-backoff, Mode A (заливает baseline+new для ревью). 16 unit-тестов, build/typecheck зелёные.
-- [~] **Фаза 4: дашборд** — БЭКЕНД ✅ (логика), фронт-дизайн отдельно (см. ниже). Server-side сессии в Redis
+- [x] **Фаза 4: дашборд** ✅ — бэкенд + Angular review UI (детали ниже). Server-side сессии в Redis
   (argon2id-пароли, opaque 256-bit cookie `pixela_session`, sliding TTL, logout=DEL), `internal/dashboard`
   read/review-сервис: membership-scoped чтения на уровне SQL (никакого пост-фильтра в Go), точное
   различение 404-vs-403 (не течём о существовании чужих ресурсов), presigned-URL baseline/new/diff для
@@ -76,8 +76,26 @@
   `GET /v1/builds/{id}`, `GET /v1/snapshots/{id}`), `SessionCookie` security-схема + session-middleware
   (docs==enforcement, рядом с ApiKey), admin-CLI `user create` / `member add`. Integration-тест
   (login/cookie/me, membership-изоляция, presigned-URL, 401/403/404, logout-ревокация) — зелёный, гейт зелёный.
-  Осталось: **дизайн фронта** (Angular review UI; `docs/design/` — референс).
-- [ ] Фаза 5: approve + GitLab
+- [x] **Фаза 4 (фронт): Angular review UI** ✅ — дашборд по `docs/design/` (тёмная тема, Geist): список
+  проектов/билдов с пагинацией и статус-счётчиками, build-detail с батч approve/reject, review-вьюер
+  (baseline/new/diff через presigned-URL) с pessimistic approve/reject. One-command стек
+  (`docker compose up`) с сидом демо-данных; presign-split (`S3_PUBLIC_ENDPOINT`) для браузера за NAT.
+- [x] **Фаза 5: approve + git-native write-back + GitLab MR status** ✅
+  - **5a** — ручки `POST /v1/{snapshots,builds}/{id}/{approve,reject}` (Huma), pessimistic-проводка кнопок
+    в review/build-detail, регистрация baseline в `baselines` при approve (NEW→эталон, замыкает
+    регресс-петлю: следующий билд видит CHANGED). Гейт + integration зелёные, проверено live.
+  - **5b** — Mode A: `internal/gitlab` (минимальный REST: Commits create/update/delete base64 + Statuses),
+    `internal/gitsync` (2 River-воркера: commit-worker пишет эталоны из CAS по sha, status-worker мапит
+    статус билда→commit-state и линкует на дашборд через `PUBLIC_URL`; оба no-op без `gitlab_project_id`/
+    токена), `internal/queue/gitjobs` (транзакционный enqueue `InsertTx` — approve и его сайд-эффекты
+    атомарны). Approve ставит git_commit (только снапшоты с `baseline_path`) + git_status в той же tx.
+    Колонки `projects.gitlab_project_id`/`snapshots.baseline_path` (идемпотентные incremental-ALTER).
+    Admin-CLI `pixela project set-gitlab <slug> <id>`. Reporter шлёт repo-relative `baselinePath` на
+    declare new-image (убран паразитный baseline-upload, клоббривший `new_image_sha`).
+  - **5c** — зеркалирование вердикта в GitLab сразу после первой финализации билда (не только по кнопке).
+  - Проверка: go-гейт зелёный (gofmt/vet/golangci-lint 0/build/test -race), gitlab httptest pass,
+    integration `ok` 20s, reporter typecheck + 16/16. Live-smoke на демо-стеке: approve→200 ReviewResult,
+    git_status job встал в tx и завершён воркером как no-op без токена.
 - [ ] Фаза 6: уведомления
 - [ ] Фаза 7: деплой
 

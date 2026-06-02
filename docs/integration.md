@@ -1,8 +1,8 @@
 # Интеграция Pixela с репозиториями (где прогоняются тесты)
 
 > Как репозиторий с Playwright-тестами подключается к Pixela: полный поток данных, что и куда
-> отправляется, как резолвится baseline, что происходит при approve, и **что из этого уже работает,
-> а что — в Фазе 5**. Технические идентификаторы (эндпоинты, env, поля) — на английском; объяснения — на русском.
+> отправляется, как резолвится baseline, что происходит при approve. **Фаза 5 завершена — петля замкнута**
+> (см. §11). Технические идентификаторы (эндпоинты, env, поля) — на английском; объяснения — на русском.
 >
 > Связанные документы: архитектура бэкенда — [`architecture/go-backend.md`](architecture/go-backend.md);
 > инварианты продукта — корневой [`../CLAUDE.md`](../CLAUDE.md); reporter —
@@ -43,7 +43,7 @@ custom-reporter в `playwright.config.ts` и прогонять тесты в CI
 │                                  │                          │                          │
 │   web dashboard (Angular) ◄──────┴── presigned URL ◄────────┘                          │
 │        │  review: 2-up / overlay / onion / шторка, approve / reject                    │
-│        └──────────────────────────────────────────────────► GitLab MR status (Фаза 5) │
+│        └──────────────────────────────────────────────────► GitLab MR status (Mode A) │
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -80,7 +80,7 @@ custom-reporter в `playwright.config.ts` и прогонять тесты в CI
 | Postgres | Pixela | метаданные: проекты, сборки, снимки, baseline'ы, события |
 | MinIO/S3 | Pixela | PNG, content-addressable по sha256 (дедуп) |
 | Web dashboard | Pixela | ревью диффов, approve/reject, история |
-| GitLab | внешний | источник CI-метаданных; адресат статуса MR (Фаза 5) |
+| GitLab | внешний | источник CI-метаданных; адресат baseline-коммита + статуса MR (Mode A, опц.) |
 
 ---
 
@@ -103,6 +103,10 @@ pixela apikey create acme-storefront ci
 
 Один **проект Pixela = один репозиторий**. Все данные изолированы по проекту: каждый запрос
 аутентифицируется ключом проекта, данные проектов не пересекаются (инвариант #5).
+
+Чтобы approve коммитил эталон обратно в git и репортил статус в MR — привяжи проект к GitLab-репо
+(`pixela project set-gitlab` + `GITLAB_TOKEN`/`PUBLIC_URL`), см. §4.4. Без этого approve работает, но
+git-write-back и MR-статус выключены (no-op).
 
 ### 4.2. В репозитории с тестами
 
@@ -166,6 +170,39 @@ visual-tests:
 
 Бранч/коммит/pipeline/MR/шарды Pixela **подхватывает из GitLab-CI окружения автоматически** —
 руками прокидывать не нужно.
+
+### 4.4. GitLab-проводка (Mode A write-back + MR-статус, опционально)
+
+Чтобы approve **коммитил эталон обратно в репо** и Pixela репортил **commit status в MR**, привяжи проект
+Pixela к его GitLab-репозиторию и дай сервису токен с правом push:
+
+```bash
+# 1) привязать проект Pixela к GitLab project ID (число из Settings → General, или path "group/repo")
+pixela project set-gitlab acme-storefront 12345678
+```
+
+```bash
+# 2) на процессах serve + worker — env с доступом к GitLab API:
+GITLAB_BASE_URL=https://gitlab.com           # или твой self-hosted GitLab
+GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxx           # PAT/deploy-token: api + write_repository
+PUBLIC_URL=https://pixela.internal            # внешний адрес дашборда — target-ссылка в commit-status
+```
+
+| Env | Назначение |
+|---|---|
+| `GITLAB_BASE_URL` | хост GitLab (Commits + Statuses API). Дефолт `https://gitlab.com` |
+| `GITLAB_TOKEN` | токен с `api` + `write_repository`. **Пусто ⇒ git-write-back и MR-статус выключены (no-op)** |
+| `PUBLIC_URL` | база для `target_url` в commit-status (кнопка ведёт на сборку в дашборде) |
+
+**Что делает approve при настроенной проводке.** В одной транзакции с регистрацией эталона ставятся две
+River-задачи (воркер `internal/gitsync`): `git_commit` пишет baseline-PNG из CAS обратно в ветку сборки
+(`CHANGED→update`, `NEW→create`, `REMOVED→delete`, base64 через Commits API), `git_status` шлёт
+`success/failed/pending` в commit MR (Statuses API) со ссылкой на дашборд. На финализации сборки начальный
+вердикт зеркалится в MR автоматически (без кнопки).
+
+**Если `set-gitlab` не задан или `GITLAB_TOKEN` пуст** — обе задачи тихо no-op'ятся: approve/reject и
+запись `baselines` работают, но в git ничего не пишется и MR-статус не шлётся. Это штатный режим для
+локального/без-GitLab использования.
 
 ---
 
@@ -232,9 +269,12 @@ Reporter слушает Playwright и на `onTestEnd` забирает атта
 Сборки `REVIEW_REQUIRED` ждут человека. В review-воркспейсе (presigned-URL картинок из MinIO):
 **рядом / наложение / onion / шторка**, синхронный зум (F-26), история по снимку, клавиши A/R.
 
-### 5.7. Approve → git-native + статус в GitLab MR (intended, Фаза 5)
+### 5.7. Approve → git-native + статус в GitLab MR (✅ реализовано, Фаза 5)
 
-Это сердцевина Mode A. Решение зафиксировано в [ADR 0002](adr/0002-baseline-ownership.md).
+Это сердцевина Mode A. Решение зафиксировано в [ADR 0002](adr/0002-baseline-ownership.md). Механика —
+в §4.4: approve регистрирует эталон в `baselines` и **транзакционно** ставит две River-задачи — `git_commit`
+(пишет baseline-PNG из CAS обратно в репо: CHANGED→update / NEW→create / REMOVED→delete) и `git_status`
+(commit status в MR). Без настроенного `set-gitlab`/`GITLAB_TOKEN` git-задачи — тихий no-op.
 
 **Почему фиче-ветку нельзя смержить до approve.** Ты на ветке, где UI изменился намеренно (например,
 кнопка стала зелёной). В репо лежит **старый** baseline-PNG (синяя кнопка). Сам **Playwright** на прогоне
@@ -383,9 +423,9 @@ baseline-resolution слой (и тесты станут зависеть от P
 
 ---
 
-## 11. ⚠️ Что работает СЕГОДНЯ vs что в Фазе 5
+## 11. Что работает СЕГОДНЯ
 
-Честно, по состоянию кода (на момент написания):
+По состоянию кода — **петля замкнута (Фаза 5 завершена)**:
 
 | Возможность | Статус |
 |---|---|
@@ -393,28 +433,28 @@ baseline-resolution слой (и тесты станут зависеть от P
 | Ingestion: create/declare/upload/finalize, изоляция по ключу, REMOVED, enqueue | ✅ готово |
 | Async diff: pixelmatch, классификация UNCHANGED/CHANGED/NEW/ERROR, diff-PNG, детерминизм | ✅ готово |
 | Dashboard: проекты/сборки/детали/review (4 режима, синхро-зум), members/baselines/activity | ✅ готово |
-| **Регистрация baseline в Pixela** (`baselines` пишется в проде) | ❌ **нет** — пишут только тесты |
-| **Approve / Reject ручки** в бэке | ❌ **нет** |
-| **Approve → git-коммит/MR baseline-PNG** (суть Mode A) | ❌ **нет** (Фаза 5) |
-| **Статус в GitLab MR** | ❌ **нет** (Фаза 5) |
+| **Регистрация baseline в Pixela** (`baselines` пишется при approve) | ✅ готово (Фаза 5) |
+| **Approve / Reject ручки** в бэке (`/v1/{snapshots,builds}/{id}/{approve,reject}`) | ✅ готово (Фаза 5) |
+| **Approve → git-коммит baseline-PNG обратно в репо** (суть Mode A) | ✅ готово (Фаза 5) — при `set-gitlab` |
+| **Статус в GitLab MR** (commit status на финализации + по кнопке) | ✅ готово (Фаза 5) — при `set-gitlab` |
 
-**Практическое следствие.** Подключить reporter в реальный проект и увидеть, как сборки/снимки/картинки
-доезжают в дашборд — **можно уже сейчас**. Но регрессионная петля **не замкнута**: т.к. таблица
-`baselines` в проде ничем не наполняется, diff-воркеру не с чем сравнивать → **каждый снимок становится
-NEW**, «CHANGED» с серверным diff-оверлеем не появляется, а approve/reject — заглушки. То есть сегодня это
-**«ingestion + просмотр»**, ещё не **«поймать и заревьюить регрессию»**.
+**Практическое следствие.** Регрессионная петля замкнута внутри Pixela: approve регистрирует эталон
+(NEW→`baselines`), поэтому следующая сборка уже ловит **CHANGED** с серверным diff-оверлеем. Reporter шлёт
+`baselinePath` (где эталон лежит в git), и при настроенном `set-gitlab` approve **коммитит обновлённый
+baseline-PNG обратно в репозиторий** и репортит статус в MR. Без `gitlab_project_id`/`GITLAB_TOKEN`
+git-write-back и MR-статус — **тихий no-op** (approve/reject и регистрация эталона работают всё равно),
+так что локально/без GitLab сервис полноценно работает как «ingestion + review + approve».
 
 ---
 
-## 12. Минимальный путь до «реально юзабельно»
+## 12. Замыкание петли — сделано
 
-Два варианта замкнуть петлю (можно делать A → потом B):
+Обе ступени реализованы:
 
-- **A. Интерим — авто-baseline на дефолтной ветке.** Прогон на `main` регистрирует baseline'ы в Pixela;
-  на фиче-ветках diff-воркер честно ловит **CHANGED** и рисует оверлей. Замыкает регрессию **без** approve
-  и git-flow — быстрый способ начать пользоваться на реальном проекте. (~полдня)
-- **B. Полноценно — Фаза 5.** Ручки approve/reject + запись baseline + Mode A подготовка коммита/MR в репо
-  + статус в GitLab MR + проводка кнопок в review. Это и есть настоящий git-native workflow.
+- **A. Авто/ручной baseline.** Approve на любой сборке регистрирует эталон в `baselines`; на следующих
+  прогонах diff-воркер честно ловит **CHANGED** и рисует оверлей. Прогон на `main` так же фиксирует эталоны.
+- **B. Полноценно (Фаза 5).** Ручки approve/reject + запись baseline + Mode A коммит baseline-PNG в репо
+  + статус в GitLab MR + проводка кнопок в review — настоящий git-native workflow. См. §4.4 (GitLab-проводка).
 
 ---
 
